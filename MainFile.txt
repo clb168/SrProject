@@ -1,6 +1,781 @@
 
 
 
+
+ ###########  slingshot-network.md  ###########
+
+Slingshot Network on PolarisContent is still being developed. Please check back.
+
+ ###########  machine-overview.md  ###########
+
+PolarisPolaris is a 560 node HPE Apollo 6500 Gen 10+ based system.  Each node has a single 2.8 Ghz AMD EPYC Milan 7543P 32 core CPU with 512 GB of DDR4 RAM and four Nvidia A100 GPUs, a pair of local 1.6TB of SSDs in RAID0 for the users use, and a pair of slingshot network adapters.  They are currently slingshot 10, but are scheduled to be upgraded to slingshot 11 in the fall of 2022.  There are two nodes per chassis, seven chassis per rack, and 40 racks for a total of 560 nodes.  More detailed specifications are as follows:Polaris Compute Nodes| POLARIS COMPUTE | DESCRIPTION | PER NODE | AGGREGATE ||---------|-------------|----------|-----------|| Processor (Note 1) | 2.8 GHz 7543P | 1 | 560 || Cores/Threads | AMD Zen 3 | 32/64 | 17,920/35,840 || RAM (Note 2) | DDR4 | 512 GiB | 280 TiB || GPUS | Nvidia A100 | 4 | 2240 || Local SSD | 1.6 TB | 2/3.2 TB | 1120/1.8PB |Note 1: 256MB shared L3 cache, 512KB L2 cache per core, 32 KB L1 cache per core  Note 2: 8 memory channels rated at 204.8 GiB/sPolaris A100 GPU Information| DESCRIPTION | A100 PCIe | A100 HGX (Polaris) ||-------------|----------|-----------|| GPU Memory | 40 GiB HBM2 | 160 GiB HBM2 || GPU Memory BW | 1.6 TB/s | 6.4 TB/s || Interconnect | PCIe Gen4 64 GB/s | NVLink 600 GB/s || FP 64 | 9.7 TF | 38.8 TF || FP64 Tensor Core | 19.5 TF | 78 TF || FP 32 | 19.5 TF | 78 TF || BF16 Tensor Core | 312 TF | 1.3 PF || FP16 Tensor Core | 312 TF | 1.3 PF || INT8 Tensor Core | 624 TOPS | 2496 TOPS || Max TDP Power | 250 W | 400 W |Login nodesThere are six login nodes for editing code, building code, submitting / monitoring jobs, checking usage (sbank), etc..  The various compilers and libraries are present on the logins, so most users should be able to build their code.  However, if your build requires the physical presence of the GPU, you will need to build on a compute node.  All users share the same login nodes so please be courteous and respectful of your fellow users.  For example, please do not run computationally or IO intensive pre- or post-processing on the logins and keep the parallelism of your builds to a reasonable level.| POLARIS LOGIN | DESCRIPTION | PER NODE | AGGREGATE ||---------|-------------|----------|-----------|| Processor (Note 1) | 2.0 GHz 7702 | 2 | 12 || Cores/Threads | AMD Zen 3 | 128/256 | 768/1536 || RAM (Note 2) | DDR4 | 512 GiB | 3 TiB || GPUS (Note 3) |No GPUS | 0 | 0 || Local SSD | None | 0 | 0 |Note 1: 256MB shared L3 cache, 512KB L2 cache per core, 32 KB L1 cache per core  Note 2: 8 memory channels rated at 204.8 GiB/s per socket  Note 3: If your build requires the physical presence of a GPU you will need to build on a compute node.Gateway nodesThere are 50 gateway nodes.  These nodes are not user accessible, but are used transparently for access to the storage systems.  Each node has a single 200 Gbs HDR IB card for access to the storage area network.  This gives a theoretical peak bandwidth of 1250 GB/s which is approximately the aggregate bandwidth of the global file systems (1300 GB/s).StoragePolaris has access to the ALCF global file systems.  Details can be found here
+
+ ###########  NVIDIA-Nsight.md  ###########
+
+NVIDIA Nsight toolsReferencesNVIDIA Nsight Systems Documentation NVIDIA Nsight Compute DocumentationIntroductionNVIDIA® Nsight™ Systems provides developers a system-wide visualization of an applications performance. Developers can optimize bottlenecks to scale efficiently across any number or size of CPUs and GPUs on Polaris. For further optimizations to compute kernels developers should use Nsight Compute.The NVIDIA Nsight Compute is an interactive kernel profiler for CUDA applications. It provides detailed performance metrics and API debugging via a user interface and command line tool. In addition, the baseline feature of this tool allows users to compare results within the tool. NVIDIA Nsight Compute provides a customizable and data-driven user interface,  metric collection, and can be extended with analysis scripts for post-processing results.Step-by-step guideCommon part on PolarisBuild your application for Polaris, and then submit your job script to Polaris or start an interactive job mode on Polaris as follows:  ```$ qsub -I -l select=1 -l walltime=1:00:00$ nsys --versionNVIDIA Nsight Systems version 2021.3.1.54-ee9c30a$ ncu --versionNVIDIA (R) Nsight Compute Command Line ProfilerCopyright (c) 2018-2021 NVIDIA CorporationVersion 2021.2.1.0 (build 30182073) (public-release)```Nsight SystemsRun your application with Nsight Systems as follows:  ```$ nsys profile -o {output_filename} --stats=true ./{your_application}```Nsight ComputeRun your application with Nsight Compute.  ```$ ncu --set detailed -k {kernel_name} -o {output_filename} ./{your_application}```Remark: Without -o option, Nsight Compute provides performance data as a standard outputPost-processing the profiled dataPost-processing via CLI```$ nsys stats {output_filename}.qdrep$ ncu -i {output_filename}.ncu-rep  ```Post-processing on your local system via GUI
+Install NVIDIA Nsight Systems and NVIDIA Nsight Compute after downloading both of them from the  NVIDIA Developer Zone.   
+Remark: Local client version should be the same as or newer than NVIDIA Nsight tools on Polaris. 
+Download nsys output files (i.e., ending with .qdrep and . sqlite) to your local system, and then open them with NVIDIA Nsight Systems on your local system.  
+
+Download ncu output files (i.e., ending with .ncu-rep) to your local system, and then open them with NVIDIA Nsight Compute on your local system.  
+More options for performance analysis with Nsight Systems and Nsight Compute```$ nsys --help$ ncu --help```A quick exampleNsight SystemsRunning a stream benchmark with Nsight Systems```jkwack@x3008c0s13b1n0:~/BabelStream/build_polaris> nsys profile -o JKreport-nsys-BableStream --stats=true ./cuda-streamWarning: LBR backtrace method is not supported on this platform. DWARF backtrace method will be used.Collecting data...BabelStreamVersion: 4.0Implementation: CUDARunning kernels 100 timesPrecision: doubleArray size: 268.4 MB (=0.3 GB)Total size: 805.3 MB (=0.8 GB)Using CUDA device NVIDIA A100-SXM4-40GBDriver: 11040Function    MBytes/sec  Min (sec)   Max         Average     Copy        1368294.603 0.00039     0.00044     0.00039     Mul         1334324.779 0.00040     0.00051     0.00041     Add         1358476.737 0.00059     0.00060     0.00059     Triad       1366095.332 0.00059     0.00059     0.00059     Dot         1190200.569 0.00045     0.00047     0.00046     Processing events...Saving temporary "/var/tmp/pbs.308834.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov/nsys-report-f594-c524-6b4c-300a.qdstrm" file to disk...Creating final output files...Processing [===============================================================100%]Saved report file to "/var/tmp/pbs.308834.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov/nsys-report-f594-c524-6b4c-300a.qdrep"Exporting 7675 events: [===================================================100%]Exported successfully to/var/tmp/pbs.308834.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov/nsys-report-f594-c524-6b4c-300a.sqliteCUDA API Statistics:Time(%)  Total Time (ns)  Num Calls  Average (ns)  Minimum (ns)  Maximum (ns)  StdDev (ns)           Name         41.5      197,225,738        401     491,834.8       386,695       592,751      96,647.5  cudaDeviceSynchronize
+35.4      168,294,004          4  42,073,501.0       144,211   167,547,885  83,649,622.0  cudaMalloc
+22.5      106,822,589        103   1,037,112.5       446,617    20,588,840   3,380,727.4  cudaMemcpy
+ 0.4        1,823,597        501       3,639.9         3,166        24,125       1,228.9  cudaLaunchKernel
+ 0.2        1,166,186          4     291,546.5       130,595       431,599     123,479.8  cudaFree
+CUDA Kernel Statistics:Time(%)  Total Time (ns)  Instances  Average (ns)  Minimum (ns)  Maximum (ns)  StdDev (ns)                             Name                           24.5       58,415,138        100     584,151.4       582,522       585,817        543.0  void add_kernel<double>(const T1 *, const T1 *, T1 *)
+24.4       58,080,329        100     580,803.3       579,802       582,586        520.5  void triad_kernel<double>(T1 *, const T1 *, const T1 *)
+18.3       43,602,345        100     436,023.5       430,555       445,979      2,619.5  void dot_kernel<double>(const T1 *, const T1 *, T1 *, int)
+16.5       39,402,677        100     394,026.8       392,444       395,708        611.5  void mul_kernel<double>(T1 *, const T1 *)
+16.1       38,393,119        100     383,931.2       382,556       396,892      1,434.1  void copy_kernel<double>(const T1 *, T1 *)
+ 0.2          523,355          1     523,355.0       523,355       523,355          0.0  void init_kernel<double>(T1 *, T1 *, T1 *, T1, T1, T1)
+CUDA Memory Operation Statistics (by time):Time(%)  Total Time (ns)  Count  Average (ns)  Minimum (ns)  Maximum (ns)  StdDev (ns)      Operation     100.0       61,323,171    103     595,370.6         2,399    20,470,146  3,439,982.0  [CUDA memcpy DtoH]CUDA Memory Operation Statistics (by size):Total (MB)  Count  Average (MB)  Minimum (MB)  Maximum (MB)  StdDev (MB)      Operation     805.511    103         7.820         0.002       268.435       45.361  [CUDA memcpy DtoH]
+Operating System Runtime API Statistics:Time(%)  Total Time (ns)  Num Calls  Average (ns)  Minimum (ns)  Maximum (ns)  StdDev (ns)        Name     85.9      600,896,697         20  30,044,834.9         3,477   100,141,768  42,475,064.1  poll
+13.5       94,610,402      1,201      78,776.4         1,002    11,348,375     402,562.6  ioctl
+ 0.2        1,374,312         79      17,396.4         3,486       434,715      48,015.2  mmap64
+ 0.1          877,705         51      17,209.9         1,031       748,723     104,491.6  fopen
+ 0.1          741,969         12      61,830.8        17,272       256,852      64,706.5  sem_timedwait
+ 0.1          529,563        120       4,413.0         1,292        20,579       2,134.3  open64
+ 0.0          251,602          4      62,900.5        57,337        72,126       6,412.6  pthread_create
+ 0.0           93,461         18       5,192.3         1,011        19,386       4,401.0  mmap
+ 0.0           37,621         11       3,420.1         1,302        11,672       2,867.6  munmap
+ 0.0           35,735          9       3,970.6         1,723         6,251       1,477.2  fgetc
+ 0.0           33,533          1      33,533.0        33,533        33,533           0.0  fgets
+ 0.0           26,832         13       2,064.0         1,452         3,366         542.6  write
+ 0.0           21,341          5       4,268.2         1,213         9,738       3,378.3  putc
+ 0.0           20,838          6       3,473.0         1,763         6,853       1,801.1  open
+ 0.0           17,016         10       1,701.6         1,523         1,834          96.9  read
+ 0.0           11,430          8       1,428.8         1,082         1,583         151.9  fclose
+ 0.0            6,202          1       6,202.0         6,202         6,202           0.0  pipe2
+ 0.0            5,961          2       2,980.5         2,254         3,707       1,027.4  socket
+ 0.0            5,670          2       2,835.0         2,795         2,875          56.6  fwrite
+ 0.0            5,481          1       5,481.0         5,481         5,481           0.0  connect
+ 0.0            5,279          2       2,639.5         1,743         3,536       1,267.8  fread
+ 0.0            1,082          1       1,082.0         1,082         1,082           0.0  bind
+Report file moved to "/home/jkwack/BabelStream/build_polaris/JKreport-nsys-BableStream.qdrep"Report file moved to "/home/jkwack/BabelStream/build_polaris/JKreport-nsys-BableStream.sqlite"```Reviewing the Nsight Systems data via GUINsight ComputeRunning a stream benchmark with Nsight Compute for triad_kernel```jkwack@x3008c0s13b1n0:~/BabelStream/build_polaris> ncu --set detailed -k triad_kernel -o JKreport-ncu_detailed-triad_kernel-BableStream ./cuda-streamBabelStreamVersion: 4.0Implementation: CUDARunning kernels 100 timesPrecision: doubleArray size: 268.4 MB (=0.3 GB)Total size: 805.3 MB (=0.8 GB)==PROF== Connected to process 56600 (/home/jkwack/BabelStream/build_polaris/cuda-stream)Using CUDA device NVIDIA A100-SXM4-40GBDriver: 11040==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passes==PROF== Profiling "triad_kernel": 0%....50%....100% - 18 passesFunction    MBytes/sec  Min (sec)   Max         Average     Copy        1331076.105 0.00040     0.00042     0.00041     Mul         1304696.608 0.00041     0.00043     0.00042     Add         1322600.587 0.00061     0.00062     0.00061     Triad       1327.700    0.60654     0.62352     0.61106     Dot         850376.762  0.00063     0.00070     0.00065     ==PROF== Disconnected from process 56600==PROF== Report: /home/jkwack/BabelStream/build_polaris/JKreport-ncu_detailed-triad_kernel-BableStream.ncu-rep```Reviewing the Nsight Compute data via GUI
+
+ ###########  performance-overview.md  ###########
+
+Performance Tools OverviewContent is still being developed. Please check back.
+
+ ###########  math-libraries.md  ###########
+
+Math LibrariesBLAS, LAPACK, and ScaLAPACK for CPUsSome math libraries targeting CPUs are made available as part of the nvhpc modules and are based on the OpenBLAS project. Additional documentation is available from NVIDIA. 
+BLAS & LAPACK can be found in the $NVIDIA_PATH/compilers/lib directory.
+
+ScaLAPACK can be found in the $NVIDIA_PATH/comm_libs directory.
+NVIDIA Math Libraries for GPUsMath libraries from NVIDIA are made available via the nvhpc modules. Many of the libraries users typically use can be found in the $NVIDIA_PATH/math_libs directory. Some examples follow and additional documentation is available from NVIDIA.
+libcublas
+
+libcufft
+
+libcurand
+
+libcusolver
+
+libcusparse
+
+
+ ###########  vasp.md  ###########
+
+VASP 6.x.x in Polaris (NVHPC+OpenACC+OpenMP+CUDA math+CrayMPI)VASP is a commercial code for materials and solid state simulations. Users must have a license to use this code in ALCF systems. More information on how to get access to VASP binaries can be found here.General compiling/installing instructions provided by VASP supportInstructions and samples of makefile.include could be found in vasp.at wiki pageThe follow makefile.include was tailored for Polaris, originally taken from here```makefilemakefile.inclidePrecompiler optionsCPP_OPTIONS = -DHOST=\"LinuxNV\" \          -DMPI -DMPI_BLOCK=8000 -Duse_collective \
+          -DscaLAPACK \
+          -DCACHE_SIZE=4000 \
+          -Davoidalloc \
+          -Dvasp6 \
+          -Duse_bse_te \
+          -Dtbdyn \
+          -Dqd_emulate \
+          -Dfock_dblbuf \
+          -D_OPENMP \
+          -D_OPENACC \
+          -DUSENCCL -DUSENCCLP2P
+CPP        = nvfortran -Mpreprocess -Mfree -Mextend -E $(CPP_OPTIONS) $$(FUFFIX)  > $$(SUFFIX)FC         = ftn  -acc -target-accel=nvidia80 -mpFCL        = ftn   -acc -target-accel=nvidia80 -mp    -c++libsFREE       = -MfreeFFLAGS     = -Mbackslash -Mlarge_arraysOFLAG      = -fastDEBUG      = -Mfree -O0 -tracebackUse NV HPC-SDK provided BLAS and LAPACK librariesBLAS       = -lblasLAPACK     = -llapackprovided by cray-scilibBLACS      =SCALAPACK  = -MscalapackCUDA       = -cudalib=cublas,cusolver,cufft,nccl -cudaLLIBS      = $(SCALAPACK) $(LAPACK) $(BLAS) $(CUDA)Software emulation of quadruple precsionNVROOT = /opt/nvidia/hpc_sdk/Linux_x86_64/21.NVROOT = /opt/nvidia/hpc_sdk/Linux_x86_64/22.3QD         ?= $(NVROOT)/compilers/extras/qdLLIBS      += -L$(QD)/lib -lqdmod -lqdINCS       += -I$(QD)/include/qdUse the FFTs from fftwprovided by cray-fftwFFTW       ?=LLIBS      +=INCS       +=OBJECTS    = fftmpiw.o fftmpi_map.o fftw3d.o fft3dlib.oRedefine the standard list of O1 and O2 objectsSOURCE_O1  := pade_fit.oSOURCE_O2  := pead.oFor what used to be vasp.5.libCPP_LIB    = $(CPP)FC_LIB     = nvfortranCC_LIB     = nvcCFLAGS_LIB = -OFFLAGS_LIB = -O1 -MfixedFREE_LIB   = $(FREE)OBJECTS_LIB= linpack_double.o getshmem.oFor the parser libraryCXX_PARS   = nvc++ --no_warningsNormally no need to change thisSRCDIR     = ../../srcBINDIR     = ../../bin```Setting up compiler and libraries with moduleThe follow modules would integrate into ftn compiler the libraries and path to headers provided by Cray.```module purgemodule add PrgEnv-nvhpcmodule add cray-libsci/21.08.1.2module add cray-fftw/3.3.8.13```Compiling vaspOnce the modules are loaded and a makefile.include is in vasp folder, compiling all the object files and binaries is done with:```make -j1```Running VASP in Polarisexample-script.sh```!/bin/shPBS -l select=1:system=polarisPBS -l place=scatterPBS -l walltime=0:15:00module purgemodule add PrgEnv-nvhpc cray-fftw cray-libsciexport MPICH_GPU_SUPPORT_ENABLED=1NNODES=1NRANKS=4NDEPTH=8NTHREADS=1NGPUS=4NTOTRANKS=$(( NNODES * NRANKS ))aprun -n ${NTOTRANKS} -N ${NRANKS} -d ${NDEPTH} -e OMP_NUM_THREADS=${NTHREADS} /bin/vasp_std```Submission script should have executable attibutes to be used with qsub script mode.```chmod +x example-script.shqsub  example-script.sh```Known issues
+Undefined MPIX_Query_cuda_support function at linking binary* 
+This function is called in src/openacc.F. The  MPIX_Query_cuda_support is not included incray-mpich. One turn around to thisissue is to comment this function call.See the follow suggested changes marked by !!!!!CHANGE HERE in the file:src/openacc.F```fortran!!!!!CHANGE HERE !      INTERFACE!        INTEGER(c_int) FUNCTION MPIX_Query_cuda_support() BIND(C, name="MPIX_Query_cuda_support")!        END FUNCTION!      END INTERFACE   CHARACTER(LEN=1) :: ENVVAR_VALUE
+   INTEGER :: ENVVAR_STAT
+   ! This should tell us if MPI is CUDA-aware
+!!!!!CHANGE HERE    !CUDA_AWARE_SUPPORT = MPIX_Query_cuda_support() == 1
+   CUDA_AWARE_SUPPORT = .TRUE.
+   ! However, for OpenMPI some env variables can still deactivate it even though the previous
+   ! check was positive
+   CALL GET_ENVIRONMENT_VARIABLE("OMPI_MCA_mpi_cuda_support", ENVVAR_VALUE, STATUS=ENVVAR_STAT)
+   IF (ENVVAR_STAT==0 .AND. ENVVAR_VALUE=='0') CUDA_AWARE_SUPPORT = .FALSE.
+   CALL GET_ENVIRONMENT_VARIABLE("OMPI_MCA_opal_cuda_support", ENVVAR_VALUE, STATUS=ENVVAR_STAT)
+   IF (ENVVAR_STAT==0 .AND. ENVVAR_VALUE=='0') CUDA_AWARE_SUPPORT = .FALSE.
+   ! Just in case we might be non-OpenMPI, and their MPIX_Query_cuda_support behaves similarly
+   CALL GET_ENVIRONMENT_VARIABLE("MV2_USE_CUDA", ENVVAR_VALUE, STATUS=ENVVAR_STAT)
+   IF (ENVVAR_STAT==0 .AND. ENVVAR_VALUE=='0') CUDA_AWARE_SUPPORT = .FALSE.
+   CALL GET_ENVIRONMENT_VARIABLE("MPICH_RDMA_ENABLED_CUDA", ENVVAR_VALUE, STATUS=ENVVAR_STAT)
+   IF (ENVVAR_STAT==0 .AND. ENVVAR_VALUE=='0') CUDA_AWARE_SUPPORT = .FALSE.
+   CALL GET_ENVIRONMENT_VARIABLE("PMPI_GPU_AWARE", ENVVAR_VALUE, STATUS=ENVVAR_STAT)
+   IF (ENVVAR_STAT==0) CUDA_AWARE_SUPPORT =(ENVVAR_VALUE == '1')
+!!!!!CHANGE HERE    CALL GET_ENVIRONMENT_VARIABLE("MPICH_GPU_SUPPORT_ENABLED", ENVVAR_VALUE, STATUS=ENVVAR_STAT)
+   IF (ENVVAR_STAT==0) CUDA_AWARE_SUPPORT =(ENVVAR_VALUE == '1')
+```
+
+ ###########  lammps.md  ###########
+
+LAMMPSOverviewLAMMPS is a general-purpose molecular dynamics software package for massively parallel computers. It is written in an exceptionally clean style that makes it one of the more popular codes for users to extend and it currently has dozens of user-developed extensions.For details bout the code and its usage, see the LAMMPS home page. This page provides information specific to running on Polaris at the ALCF.Using LAMMPS at ALCFALCF provides assistanc with build instructions, compiling executables, submitting jobs, and providing prebuilt binaries (upon request). A collection of Makefiles and submission scripts are available in the ALCF GettingStarted repo here. For questions, contact us at support@alcf.anl.gov.How to Obtain the CodeLAMMPS is an open-source code, which can be downloaded from the LAMMPS website.Building on Polaris using KOKKOS packageAfter LAMMPS has been downloaded and unpacked an ALCF filesystem, users should see a directory whose name is of the form lammps-<version>. One should then see the Makefile lammps-<version>/src/MAKE/MACHINES/Makefile.polaris in recent versions that can be used for compilation on Polaris. A copy of the Makefile is also available in the ALCF GettingStarted repo here. For older versions of LAMMPS, you may need to take an existing Makefile (e.g. Makefile.mpi) for your specific version of LAMMPS used and edit the top portion appropratiately to create a new Makefile.polaris files.The top portion of Makefile.polaris_kokkos_nvidia used to build LAMMPS with the KOKKOS package using the NVIDIA compilers is shown as an example.```polaris_nvidia = Flags for NVIDIA A100, NVIDIA Compiler, Cray MPICH, CUDAmodule load craype-accel-nvidia80make polaris_kokkos_nvidia -j 16SHELL = /bin/sh---------------------------------------------------------------------compiler/linker settingsspecify flags and libraries needed for your compilerKOKKOS_DEVICES = Cuda,OpenMPKOKKOS_ARCH = Ampere80KOKKOS_ABSOLUTE_PATH = $(shell cd $(KOKKOS_PATH); pwd)export NVCC_WRAPPER_DEFAULT_COMPILER = nvc++CRAY_INC = $(shell CC --cray-print-opts=cflags)CRAY_LIB = $(shell CC --cray-print-opts=libs)CC =        $(KOKKOS_ABSOLUTE_PATH)/bin/nvcc_wrapperCCFLAGS =  -g -O3 -mp -DLAMMPS_MEMALIGN=64 -DLAMMPS_BIGBIGCCFLAGS += $(CRAY_INC)SHFLAGS =   -fPICDEPFLAGS =  -MLINK =      $(CC)LINKFLAGS = $(CCFLAGS)LIB = $(CRAY_LIB)SIZE =      size```With the appropriate LAMMPS Makefile in place an executable can be compiled as in the following example, which uses the NVIDIA compilers.```module load craype-accel-nvidia80cd lammps-/srcmake yes-KOKKOSmake polaris_kokkos_nvidia -j 16``` Running Jobs on PolarisAn example submission script for running a KOKKOS-enabled LAMMPS executable is below as an example. Additional information on LAMMPS application flags and options is described on the LAMMPS website.```!/bin/shPBS -l select=64:system=polarisPBS -l place=scatterPBS -l walltime=0:15:00export MPICH_GPU_SUPPORT_ENABLED=1NNODES=wc -l < $PBS_NODEFILEper-node settingsNRANKS=4NRANKSSOCKET=2NDEPTH=8NTHREADS=1NGPUS=4NTOTRANKS=$(( NNODES * NRANKS ))EXE=/home/knight/bin/lammps_polaris_kokkos_nvidiaEXE_ARG="-in in.reaxc.hns -k on g ${NGPUS} -sf kk -pk kokkos neigh half neigh/qeq full newton on "OMP settings mostly to quiet Kokkos messagesMPI_ARG="-n ${NTOTRANKS} --ppn ${NRANKS} --depth=${NDEPTH} --cpu-bind depth --env OMP_NUM_THREADS=${NTHREADS} --env OMP_PROC_BIND=spread --env OMP_PLACES=cores"COMMAND="mpiexec ${MPI_ARG} ${EXE} ${EXE_ARG}"echo "COMMAND= ${COMMAND}"${COMMAND}```Performance NotesSome useful information on accelerator packages and expectations can be found on the LAMMPS website here.
+
+ ###########  openmp-polaris.md  ###########
+
+OpenMPOverviewThe OpenMP API is an open standard for parallel programming. The specification document can be found here: https://www.openmp.org. The specification describes directives, runtime routines, and environment variables that allow an application developer to express parallelism (e.g. shared memory multiprocessing and device offloading). Many compiler vendors provide implementations of the OpenMP specification (https://www.openmp.org/specifications).Using OpenMP on Polaris
+TODO: modules available
+Building on Polaris
+TODO: instructions for different compilers
+Running on Polaris
+TODO: how to run
+Example```$ cat hello.cppinclude include int main( int argv, char** argc ) {printf( "Number of devices: %d\n", omp_get_num_devices() );#pragma omp target{if( !omp_is_initial_device() )
+  printf( "Hello world from accelerator.\n" );
+else
+  printf( "Hello world from host.\n" );
+}return 0;}$ cat hello.F90program  mainuse omp_libimplicit nonewrite(,) "Number of devices:", omp_get_num_devices()!$omp target if( .not. omp_is_initial_device() ) then
+  write(*,*) "Hello world from accelerator"
+else
+  write(*,*) "Hello world from host"
+endif!$omp end targetend program main$ module load TODO$ ...```
+
+ ###########  sycl-polaris.md  ###########
+
+SYCL
+SYCL (pronounced ‘sickle’) is a royalty-free, cross-platform abstraction layer that enables code for heterogeneous processors to be written using standard ISO C++ with the host and kernel code for an application contained in the same source file. 
+
+Specification: https://www.khronos.org/sycl/
+
+Source code of the compiler: https://github.com/intel/llvm
+
+ALCF Tutorial: https://github.com/argonne-lcf/sycltrain
+```module use /soft/compilersmodule load llvm-sycl/2022-06 ```Example (memory intilization)```$ cat main.cppint main(){const int N= 100;sycl::queue Q;int *A = sycl::malloc_shared(N, Q);std::cout << "Running on "        << Q.get_device().get_info<sycl::info::device::name>()
+        << "\n";
+// Create a command_group to issue command to the groupQ.parallel_for(N, = { A[id] = id; }).wait();for (size_t i = 0; i < global_range; i++)std::cout << "A[ " << i << " ] = " << A[i] << std::endl;
+return 0;}module use /soft/compilersmodule load llvm-sycl/2022-06 $ clang++ -std=c++17 -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend '--cuda-gpu-arch=sm_80' main.cpp$ ./a.out```
+
+ ###########  eagle-data-sharing.md  ###########
+
+Sharing on Eagle Using GlobusOverviewCollaborators throughout the scientific community have the ability to write data to and read scientific data from the Eagle filesystem using Globus sharing capability. This capability provides PIs with a natural and convenient storage space for collaborative work.Note: The project PI needs to have an active ALCF account to set up Globus guest collections on Eagle, and set permissions for collaborators to access data. Globus is a service that  provides research data management, including managed transfer and sharing. It makes it easy to move, sync, and share large amounts of data. Globus will manage file transfers, monitor performance, retry failures, recover from faults automatically when possible, and report the status of your data transfer. Globus supports GridFTP for bulk and high-performance file transfer, and direct HTTPS for download. The service allows the user to submit a data transfer request, and performs the transfer asynchronously in the background. For more information, see Globus data transfer and Globus data sharing.Note: If you are migrating your data from Petrel, please see the migration instructions on the webpage == (add link) Transferring Data to Eagle=={ width="700" }Logging into GlobusLogging into Globus with your ALCF LoginALCF researchers can use their ALCF Login username and password to access Globus. Go to Globus website{:target="_blank"} and click on Log In in the upper right corner of the page.Type or scroll down to "Argonne LCF" in the "Use your existing organizational login" box, and then click "Continue".{ width="700" }Select Organization Argonne LCFYou will be taken to a familiar-looking page for ALCF login. Enter your ALCF login username and password.Accessing your Eagle Project DirectoryThere are two ways for a PI to access their project directory on Eagle. 
+Web Interface: By logging in to Globus interface directly and navigating to the ALCF Eagle endpoint.
+Note: Specifically for PIs with Eagle 'Data-only' projects and no other compute allocations, logging in from the Globus-side to get to Eagle is the only way for them to access their Eagle project directory. { width="700" }File Manager
+POSIX: By logging in to the ALCF systems from the terminal window.
+Note: For Eagle Data and Allocation projects, the PI will have access to the required ALCF systems (besides the Globus Web Interface) to login and access their Eagle project directory. { width="700" }Terminal Window Creating a Guest CollectionA project PI needs to have an 'active' ALCF account in place to create and share guest collections with collaborators. Please note that ONLY a PI has the ability to create guest collections. 
+If you have an "Inactive/Deleted" ALCF account, please click on the account re-activation link to begin the re-activation process: Re-activation Link{:target="_blank"}
+
+If you DO NOT have an ALCF account, click on the account request link to begin the application process: Account Request Link{:target="_blank"} 
+In the Globus application in your browser:
+There are multiple ways to Navigate to the Collections tab in "Endpoints":
+1. [Click on link to get started](https://app.globus.org/file-manager/collections/05d2c76a-e867-4f67-aa57-76edeb0beda0/shares){:target="_blank"}. It will take you to the Collections tab for Eagle. **OR**
+2. Click on 'Endpoints' located in the left panel of the Globus web app [or go to](https://app.globus.org/endpoints){:target="_blank"}. **Type "alcf#dtn_eagle" in the search box** located at the top of the page and click the magnifying glass to search. Click on the Managed Public Endpoint "alcf#dtn_eagle" from the search results. Click on the  Collections tab. **OR**
+3. Clicking on 'File Manager' located in the left panel of the Globus web app. Search for 'alcf#dtn_Eagle' and select it in the Collection field. Select your project directory or a sub directory that you would like to share with collaborators as a Globus guest collection. Click on 'Share' on the right side of the panel, which will take you to the Collections tab.
+Note: Shared endpoints always remain active. When you select an endpoint to transfer data to/from, you may be asked to authenticate  with  that endpoint. Follow the instructions on screen to activate the endpoint and to authenticate. You may also have to provide Authentication/Consent for the Globus web app to manage collections on this endpoint
+In the Collections tab, click 'Add a Guest Collection' located at the top right hand corner
+
+Fill out the form:
+1. If the path to the directory is not pre-populated, click the browse button, navigate and select the directory.  Note that you can create a single guest collection and set permissions for folders within a guest collection. There is no reason to create multiple guest collections to share for a single project.
+2. Give the collection a Display Name (choose a descriptive name)
+
+Click "Create Collection"
+{ width="700" }Create New Guest CollectionSharing Data with Collaborators Using Guest CollectionsIf your data is on the ALCF systems, you can easily share it with collaborators who are at ALCF or elsewhere. You have full control over which files your collaborator can access, and whether they have read-only or read-write permissions. You can share with their institutional email. The collaborator can use the Globus web interface to download the data, or use Globus transfer to move the data to their machine.To share data with collaborators (that either have a Globus account or an ALCF account), click on 'Endpoints', select your newly created Guest Collection (as described in the section above), and go to the 'Permissions' tab. Click on 'Add Permissions - Share With':{ width="700" }Add PermissionsYou can share with other Globus users or Globus Groups (==for more information on Groups, scroll down to Groups==). You can give the collaborators read, write or read+write permissions. Once the options have been selected, click 'Add Permission'.{ width="700" }Add Permissions - Share WithPI can also choose to share their data with 'Public' with anonymous read access (and anonymous write disabled).  This allows anyone that has access to the data read and/or download it without authorizing the request.{ width="700" }Add Permissions - Share WithYou should then see the share and the people you have shared it with. You can repeat this process for any number of collaborators. At any time, you can terminate access to the directory by clicking the trash can next to the user.{ width="700" }List of people that you have shared withAdditional information on Globus Guest Collections
+ONLY you (a project PI) can create guest collections and make them accessible to collaborators. Project Proxy (on the POSIX side) cannot create guest collections. 
+
+You can only share directories, not individual files.
+
+Globus allows directory trees to be shared as either read or read/write. This means that any subdirectories within that tree also have the same permissions.
+Globus supports setting permissions at a folder level, so there is no need to create multiple guest collections for a project. You can create a guest collection at the top level and share sub-directories with the collaborators by assigning the appropriate permissions.
+When you create a guest collection endpoint and give access to one or more Globus users, you can select whether each person has read or read/write access. If they have write access, they can also delete files within that directory tree, so you should be careful about providing write access.
+
+Globus guest collections are created and managed by project PIs. If the PI of a project changes, the new PI will have to create a new guest collection and share them with the users. Globus guest collections' ownership cannot be transferred.
+
+Guest collections are active as long as the project directory is available and the PI's ALCF account is active. If the account goes inactive, the collections become inaccessible to all the users. Access is restored once the PI's account is reactivated.
+
+All RW actions are performed as the PI, when using Guest Collections. If a PI does not have permissions to read or write a file or a directory, then the Globus guest collection users won't either.
+Creating a group
+Go to Groups on the left panel
+
+Click on ‘Create a new group’ at the top
+
+Give the group a descriptive name and add Description for more information
+
+Make sure you select ‘group members only’ radio button
+
+Click on ‘Create Group’
+{ width="700" }Create new groupTransferring data from EagleLog in to app.globus.org using your ALCF credentials. After authenticating, you will be taken to the Globus File Manager tab. In the 'Collection' box, type the name of Eagle managed endpoint (alcf#dtn_eagle). Navigate to the folder/file you want to transfer. HTTPS access (read-only) is enabled so you can download files by clicking the "Download" button.Click on 'Download' to download the required file. { width="700" }Download the required fileTo transfer files to another Globus endpoint, in the "collection" search box in the RHS panel, enter the destination endpoint (which could also be your Globus Connect Personal endpoint). { width="700" }Transferring files to another Globus endpointTo transfer files, select a file or directory on one endpoint, and click the blue 'Start' button.{ width="700" }Transferring filesIf the transfer is successful, you should see the following message:{ width="700" }A Successful TransferClick on 'View details' to display task detail information.{ width="700" }Transfer completedYou will also receive an email when the transfer is complete.{ width="700" }Email confirmationDeleting a guest collectionTo see all guest collections you have shared, go to 'Endpoints' in the left hand navigation bar, then 'Administered by You'. Select the guest collection endpoint you wish to delete, and click on 'Delete endpoint'.{ width="700" }Deleting a guest collectionWhat to tell your CollaboratorsIf you set up a shared endpoint and want your collaborator to download the data, this is what you need to tell them.First, the collaborator needs to get a Globus account. The instructions for setting up a Globus account are as described above. This account is free. They may already have Globus access via their institution.If the collaborator is downloading the data to his/her personal workstation, they need to install the Globus Connect client. Globus connect clients are available for Mac, Windows or Linux systems and are free.If you clicked on the 'notify users via email' button when you added access for this user, they should have received a message that looks like this:{ width="700" }Click on the 'notify users via email' button for collaborators to receive an emailYou can, of course, also send email to your collaborators yourself, telling them you've shared a folder with them. The collaborator should click on the link, which will require logging in with their institutional or Globus login username and password. They should then be able to see the files you shared with them. External collaborator's view of the shared collection is shown below: { width="700" }Collaborator transfer or sync toThey should click on the files they want to transfer, then 'Transfer or Sync to', enter their own endpoint name and desired path and click the 'Start' button near the bottom to start the transfer.{ width="700" }Chossing transfer pathEncryption and SecurityData can be encrypted during Globus file transfers. In some cases encryption cannot be supported by an endpoint, and Globus Online will signal an error.For more information, see ==How does Globus Online ensure my data is secure?==In the Transfer Files window, click on 'More options' at the bottom of the 2 panes. Check the 'encrypt transfer' checkbox in the options.{ width="700" }Encrypting the transferAlternatively, you can encrypt the files before transfer using any method on your local system, then transfer them using Globus, then unencrypt on the other end.Note: Encryption and verification will slow down the data transfer.FAQsGeneral FAQs:1. What is the Eagle File system?It is a Lustre file system residing on an HPE ClusterStor E1000 platform equipped with 100 Petabytes of usable capacity across 8480 disk drives. This ClusterStor platform also provides 160 Object Storage Targets and 40 Metadata Targets with an aggregate data transfer rate of 650GB/s. Primary use of Eagle is data sharing with the research community using ==Fix Link Globus{:target="_blank"}==.The file system is available on all ALCF compute systems. It allows sharing of data between users (ALCF and external collaborators).2. What is the difference between Guest, Shared and a Mapped collection? 
+Guest collections: A Guest collection is a logical construct that a PI sets up on their project directory in Globus that makes it accessible to collaborators. The PI creates a guest collection at or below their project and shares it with the Globus account holders.
+
+Shared collection: A guest collection becomes a shared collection when it is shared with a user/group.
+
+Mapped Collections: Mapped Collections are created by the endpoint administrators. In the case of Eagle, these are created by ALCF.
+3. Who can create Guest collections?ONLY a project PI (or project owner) can create guest collections and make them accessible to collaborators. Project Proxy (on the POSIX side) or Access Manager (on the Globus side) do not have the ability to create guest collections. 4. Who is an Access Manager? Access Manager is someone who can act as a Proxy on behalf of the PI to manage the collection. The Access Manager has the ability to add users, remove users, grant or revoke read/write access privileges for those users on that particular guest collection. However, Access Managers DO NOT have permissions to create guest collections. 5. What are Groups? Groups are constructs that enable multi-user data collaboration. A PI (and an Access Manager) can create new groups, add members to them and share a guest collection with a group of collaborators. Note Members of groups do not need to have an ALCF account.6. What are some of the Common Errors you see and what do they mean?```
+EndpointNotFound   -  Wrong endpoint name 
+
+PermissionDenied    -  If you do not have permissions to view or modify the collection on  (refer to the appropriate section for what this error could mean)
+
+ServiceUnavailable  -  If the service is down for maintenance
+```PI FAQs:1. How can a PI request for a data-only, Eagle storage allocation? A project PI can request an allocation by filling out the Director’s Discretionary Allocation Request form:Request an allocation{:target="_blank"}. The allocations committee reviews the proposals and provides its decision in 1-2 weeks. To request a storage allocation on Eagle for an existing project, please email == Checksupport@alcf.anl.gov == with your proposal.2. Does a PI need to have an ALCF account to create a Globus guest collection?Yes. The PI needs to have an 'active' ALCF account in place to create and share guest collections with collaborators. 
+If the PI has an 'Inactive/Deleted' ALCF account, they should click on the link here to start the account re-activation process: Account re-activation link{:target="_blank"} 
+
+If they don't have an ALCF account, they request for one: Account request link{:target="_blank"}  
+3. What endpoint should the PI use?alcf#dtn_eagle4. What are the actions an Eagle PI can perform?
+Create and delete guest collections, groups
+
+Create, delete and share the data with ALCF users and external collaborators
+
+Specify someone as a Proxy (Access Manager) for the guest collections
+
+Transfer data between the guest collection on Eagle and other Globus endpoints/collections
+5. How can a PI specify someone as a Proxy on the Globus side?Go to alcf#dtn_eagle -> collections -> shared collection -> roles -> select 'Access Manager'{ width="700" }To specify someone as a Proxy, click on "Roles"{ width="700" }Choose Access Manager and "Add Role"6. What is the high-level workflow for setting up a guest collection? 
+PI requests an Eagle allocation project
+
+The ALCF Allocations Committee reviews and approves requests
+
+ALCF staff sets up a project, unixgroup, and project directory (on Eagle) 
+
+A Globus sharing policy is created for the project with appropriate access controls
+
+PI creates a guest collection for the project, using the Globus mapped collection for Eagle.
+- **Note:** PI needs to have an active ALCF Account and will need to log in to Globus using their ALCF credentials.
+- If PI has a Globus account, it needs to be linked to their ALCF account
+
+PI adds collaborators to the guest collection. Collaborators can be ALCF users and external collaborators
+
+Added with Read only or Read-Write permissions
+7. Should PI add their ALCF project members to Eagle separately to access guest collections?ALCF project members already have access to the project directory that they can access by browsing the endpoint alcf#dtn_eagle. Globus guest collections allows sharing of data with collaborators that don't have ALCF accounts.  8. Who has the permissions to create a guest collection?Only the PI has the ability to create a guest collection. The Access Manager, along with the PI, has permissions to share it with collaborators (R-only or R-W permissions as needed). 9. I am the project PI. Why do I see a "Permission Denied" error when I try to CREATE a shared collection?If you are a PI and you see this error, it could mean that a sharing policy might not have been created by ALCF. Please contact ==Checksupport@alcf.anl.gov== for assistance.10. If a PI added someone as a project proxy on the POSIX-side, is it safe to assume that the Proxy can create guest collections?No, project proxies cannot create guest collections, only the PI can.11. Who can create groups?A PI (and an Access Manager) can create new groups, add members to them and share a guest collection with a group of collaborators. For more information, refer to: ==Creating a Group==12. What happens when the PI of a project changes? What happens to the shared collection endpoint?The new PI will need to create new shared collections and share it with collaborators again.13. I notice that I am the owner of all the files that were transferred by external collaborators using the guest collection. Why is that?When collaborators read files from or write files to the guest collection, they do so on behalf of the PI. All writes show up as having been carried by the PI. Also, if the PI does not have permission to read or write to a file or folder in the directory, then the collaborators will not have those permissions either. 14. What happens to the guest collections when the PI's account goes inactive?The collections will also become inactive until the PI's account is re-activated. 15. How long does it take for the endpoint to become accessible to collaborators after PI's account is activated?Right away. The page needs to be refreshed and sometimes you may have to log out and log back in.Access Manager FAQs:1. What are the actions an Access Manager can perform?1. Access Manager should be able to see the collection under "Shared with you" and "Shareable by you" tabs.
+2. Has permissions to add and/or delete collaborators on the shared collection and restrict their R-W access as needed.
+2. Does an Access Manager need to have an ALCF account?Not necessary. However, if they need to manage the membership on the POSIX side, they will need an ALCF account and be a Proxy on the project.3. What is the difference between an ALCF project Proxy and a guest collection Access Manager?ALCF Project Proxy has permissions to manage project membership on the POSIX side whereas guest collection Access Manager has permissions to manage the project membership specific to that guest collection shared by the PI on the Globus side.4. I am an 'Access Manager' on the collection. Why do I see a 'Permission Denied' error when I try to SHARE a guest collection created by the PI? If you are a non-PI who is able to access the guest collection but unable to share it, it means that your role on this guest collection is limited to a "Member". If you want the ability to share folders and sub-folders from the collections that are shared with you, please talk to the PI. They will need to set your role to an "Access Manager" for the collection within Globus5. Can an Access Manager give external collaborators access to the collections that are shared with them on Eagle?Yes, an Access Manager will see "Permissions" tab at the top of the shared collection page and can share it with collaborators and/or a group.6. Can an Access Manager create collections using the shared endpoint?No. An access manager cannot create a collection, only a PI can do that. The access manager can however share folders and sub-folders from the collections that are shared with them.7. Can an Access Manager leave a globus group or withdraw membership request for collaborators?Yes.[Go to alcf#dtn_eagle-> Groups > group_name -> Members -> click on specific user -> Role & Status -> Set the appropriate status]{ width="700" }If you get thie error, you do not have read permissions.8. Can an Access Manager delete guest collections created by PI?No. Access managers cannot delete guest collections.Guest Collection Collaborators: 1. What actions can collaborators perform?1. Collaborators can read files from a collection *
+2. Collaborators can write to a collection **
+3. Collaborators can delete files in a collection **
+** If the PI has read permissions for those files on the POSIX side and the collaborator is given read permissions in Globus for the guest collection.** If the PI has write permissions for those files on the POSIX side and the collaborator is given write permissions in Globus  for the guest collection.2. I am a collaborator. Why do I see a 'Permission Denied' error when I try to ACCESS a guest collection created by the PI?If you are a non-PI and you see this error while trying to access the collection, it means that you do not have read permissions to access the quest collection. Please contact the PI for required access.{ width="700" }If you get thie error, you do not have read permissions.
+
+ ###########  acdc-overview.md  ###########
+
+ALCF Community Data Co-Op (ACDC)Overview of the ALCF Community Data Co-Op (ACDC)The ALCF Community Data Co-Op (ACDC) powers data-driven research by providing a platform for data access and sharing, and value-added services for data discovery and analysis.A fundamental aspect of ACDC is a data fabric that allows programmatic data access, and straightforward large-scale data sharing with collaborators via Globus services.This provides a platform to build out different modalities for data access and use, such as indexing of data for discovery, data portals for interactive search and access, and accessible analysis services. ACDC will continue to be expanded to deliver ALCF users the platform to build customizable and accessible services towards the goal of supporting data-driven discoveries.Data access and sharingALCF project PIs can share data on Eagle with their collaborators, making facility accounts unnecessary. With this service, the friction of data sharing amongst collaborators is eliminated – there is no need to create copies of data for sharing, or allocation and accounts just to access data. ALCF PIs can grant access to data, at read-only or read/write access levels. Non-ALCF users throughout the scientific community, who have been granted permissions, can access the data on Eagle filesystem using Globus.Access to the data for ALCF users and collaborators is supported via bulk transfer (Globus transfer) or direct browser-based access (via HTTP/S). Direct connections to high-speed external networks permit data access at many gigabytes per second. Management of permissions and access is via a web application or command line clients, or directly via an Application Programming Interface (APIs). The interactivity permitted by the APIs distinguishes ACDC from the ALCF’s previous storage systems and presents users with many possibilities for data control and distribution.Data portal for discovery and accessACDC’s fully supported production environment is the next step in the expansion of edge services that blur the boundaries between experimental laboratories and computing facilities. The use and prominence of such services at the ALCF are only expected to increase as they become more integral to the facility’s ability to deliver data-driven scientific discoveries.ACDC includes several project-specific data portals that enable search and discovery of the data hosted on Eagle. The portals allow users to craft queries and filters to find specific sets of data that match their criteria and use faceted search for the discovery of data. Portals also provide the framework for other interfaces including data processing capabilities, all secured with authentication and configured authorization policy.The ACDC portal is a deployment of Django Globus Portal Framework customized for a variety of different projects For most of these projects, the search metadata links directly to data on Eagle, with browser-based download, preview, and rendering of files, and bulk data access.Getting Started
+Request an allocation: Researchers or PIs request an allocation on Eagle, and a project allocation is created upon request acceptance.
+
+Manage Access: PIs can manage the space independently or assign other users to manage the space, as well as provide other users with read or read/write access for folders in the space. Globus groups and identities are used to manage such access.
+
+Authentication: Globus is used for authentication and identity needed to access the system. As Globus has built-in support for federated logins, users can access ACDC using their campus or institution federated username and passcode
+If you are new to the ALCF, follow these instructions on how to transfer your data to ACDC:== Add page: Transferring your data to ACDC ==If you already have an ALCF account, follow these instructions on how to share your data:Sharing Data to Eagle
+
+ ###########  polaris-disk-quota.md  ###########
+
+ALCF Data StorageDisk StorageThe ALCF operates a number of file systems that are mounted globally across all of our production systems.HomeA Luste file system residing on a DDN AI-400X NVMe SSD platform.  It has ?? ?? TB drives with 123 TB of usable space.  It provides 8 Object Storage Targets and 4 Metadata Targets.GrandA Lustre file system residing on an HPE ClusterStor E1000 platform equipped with 100 Petabytes of usable capacity across 8480 disk drives. This ClusterStor platform provides 160 Object Storage Targets and 40 Metadata Targets with an aggregate data transfer rate of 650GB/s.  The primary use of grand is compute campaign storage.Also see ALCF Data Policies and Data TransferEagleA Lustre file system residing on an HPE ClusterStor E1000 platform equipped with 100 Petabytes of usable capacity across 8480 disk drives. This ClusterStor platform provides 160 Object Storage Targets and 40 Metadata Targets with an aggregate data transfer rate of 650GB/s.  The primary use of eagle is data sharing with the research community.  Eagle has community sharing community capabilities which allow PIs to share their project data with external collabortors using Globus.  Eagle can also be used for compute campaign storage.Also see ALCF Data Policies and Data Transfertheta-fs0A Lustre file system residing on an HPE Sonexion 3000 storage array with a usable capacity of 9.2PB and an aggregate data transfer rate of 240GB/s.  This is a legacy file system.  No new allocations are granted on theta-fs0.Also see ALCF Data Policies and Data Transfertheta-fs1A GPFS file system that resides on an IBM Elastic Storage System (ESS) cluster with a usable capacity of 7.9PB and an aggregate data transfer rate of 400GB/s.  This is a legacy file system.  No new allocations are granted on theta-fs1.Also see ALCF Data Policies and Data TransferTape StorageALCF operates three 10,000 slot Spectralogic tape libraries.  We are currently running a combination of LTO6 and LTO8 tape technology.  The LTO tape drives have built-in hardware compression which typically achieve compression ratios between 1.25:1 and 2:1 depending on the data yielding an effective capacity of approximately 65PB.HPSSHPSS is a data archive and retrieval system that manages large amounts of data on disk and robotic tape libraries. It provides hierarchical storage management services that allow it to migrate data between those storage platforms.HPSS is currently configured with a disk and tape tier. The disk tier has a capacity of 1.2PB on a DataDirect Networks SFA12K-40 storage array. By default, all archived data is initially written to the disk tier. The tape tier consists of 3 SpectraLogic T950 robotic tape libraries containing a total of 72 LTO6 tape drives with total uncompressed capacity 64 PB. Archived data is migrated to the tape tier at regular intervals, then deleted from the disk tier to create space for future archives.Access to HPSS is provided by various client components. Currently, ALCF supports access through two command-line clients, HSI and HTAR.  These are installed on the login nodes of Theta and Cooley. In order for the client to authenticate with HPSS, the user must have a keytab file that should be located in their home directory under subdirectory .hpss. The file name will be in the format .ktb_.HSI General UsageBefore you can use HSI on XC40 systems such as Theta, you must load a module:module load hsiHSI can be invoked by simply entering hsi at your normal shell prompt. Once authenticated, you will enter the hsi command shell environment:```
+hsi
+[HSI]/home/username->```You may enter "help" to display a brief description of available commands.If archiving from or retrieving to grand or eagle you must disable the Transfer Agent. -T offExample archive```[HSI]/home/username-> put mydatafile                # same name on HPSS[HSI]/home/username-> put local.file : hpss.file    # different name on HPSS[HSI]/home/username-> put -T off mydatafile```Example retrieval```[HSI]/home/username-> get mydatafile[HSI]/home/username-> get local.file : hpss.file[HSI]/home/username-> get -T off mydatafile```Most of the usual shell commands will work as expected in the HSI command environment. For example, checking what files are archived:[HSI]/home/username-> ls -lAnd organizing your archived files:```[HSI]/home/username-> mkdir dataset1[HSI]/home/username-> mv hpss.file dataset1[HSI]/home/username-> ls dataset1[HSI]/home/username-> rm dataset1/hpss.file```It may be necessary to use single or double quotes around metacharacters to avoid having the shell prematurely expand them.  For example:```[HSI]/home/username-> get *.c```will not work, but```[HSI]/home/username-> get "*.c"```will retrieve all files ending in .c.Following normal shell conventions, other special characters in filenames such as whitespace and semicolon also need to be escaped with "\" (backslash).   For example:```   [HSI]/home/username-> get "data\ file\ \;\ version\ 1"
+```retrieves the file named "data file ; version 1".HSI can also be run as a command line or embedded in a script as follows:```hsi -O log.file "put local.file"```HTAR General UsageHTAR is a tar-like utility that creates tar-format archive files directly in HPSS. It can be run as a command line or embedded in a script.Example archive```htar -cf hpssfile.tar localfile1 localfile2 localfile3```Example retrieval```htar -xf hpssfile.tar localfile2```NOTE: On Theta you must first load the HSI module to make HSI and HTAR available. "module load hsi"  NOTE:  The current version of HTAR has a 64GB file size limit as well as a path length limit.  The recommended client is HSI.GlobusIn addition, HPSS is accessible through the Globus endpoint alcf#dtn_hpss.  As with HSI and HTAR, you must have a keytab file before using this endpoint.  For more information on using Globus, please see [Using Globus].Keytab File MissingIf you see an error like this:```*** HSI: (KEYTAB auth method) - keytab file missing or inaccessible: /home/username/.hpss/.ktb_usernameError - authentication/initialization failed```it means that your account is not enabled to use the HPSS yet. Please contact support to have it set up.
+
+ ###########  facility-policies.md  ###########
+
+Facility Data Transfer PoliciesContent is still being developed. Please check back.
+
+ ###########  sftp-scp.md  ###########
+
+SFTP and SCPThese standard utilities are available for local area transfers of small files; they are not recommended for use with large data transfers due to poor performance and excess resource utilization on the login nodes.See Globus for performing large data transfers.
+
+ ###########  using-globus.md  ###########
+
+Using GlobusGlobus addresses the challenges faced by researchers in moving, sharing, and archiving large volumes of data among distributed sites. With Globus, you hand off data movement tasks to a hosted service that manages the entire operation. It monitors performance and errors, retries failed transfers, corrects problems automatically whenever possible, and reports status to keep you informed and keep you focused on your research. Command line and Web-based interfaces are available. The command line interface, which requires only ssh to be installed on the client, is the method of choice for script-based workflows. Globus also provides a REST-style transfer API for advanced-use cases that require scripting and automation.Getting StartedBasic documentation for getting started with Globus can be found at the following URL:https://docs.globus.org/how-to/Data Transfer NodeA total of 13 data transfer nodes (DTNs) for /home, theta-fs0, and Grand (6 of these DTNs are also used for HPSS) and 4 DTNs for Eagle are available to ALCF users, allowing users to perform wide and local area data transfers. Access to the DTNs is provided via the following Globus endpoints:ALCF Globus EndpointsThe Globus endpoint and the path to use depends on where your data resides. If your data is on:
+/home (/gpfs/mira-home) which is where your home directory resides: alcf#dtn_theta. Use the path /home/
+
+theta-fs0 filesystem: alcf#dtn_theta. Use /projects/
+
+HPSS: alcf#dtn_hpss
+
+Grand filesystem: alcf#dtn_theta. Use the path /grand/
+
+Eagle filesystem: alcf#dtn_eagle. Use the path /
+After registering, simply use the appropriate ALCF endpoint, as well as other sources or destinations. Use your ALCF credentials (your OTP generated by the CryptoCARD token with PIN or Mobilepass app) to activate the ALCF endpoint.Globus Connect Personal allows users to add laptops or desktops as an endpoint to Globus, in just a few steps. After you set up Globus Connect Personal, Globus can be used to transfer files to and from your computer.Additional ResourcesResearch Data Management with Globus
+
+ ###########  balsam.md  ###########
+
+BalsamContent is still being developed. Please check back.
+
+ ###########  containers.md  ###########
+
+Containers on PolarisSince Polaris is using nvidia A100 GPUs, there can be portability advantages with other nvidia-based systems if your workloads use containers.  In this document, we'll outline some information about containers on Polaris including how to build custom containers, how to run containers at scale, and common gotchas.SingularityThe container system on Polaris is singularity.  You can set up singularity with a module (this is different than, for example, ThetaGPU!):```bashTo see what versions of singularity are available:module avail singularityTo load the Default version:module load singularityTo load a specific version:module load singularity/3.8.7 # the default at the time of writing these docs.```Which singularity?There used to be a single singularity tool, which in 2021 split after some turmoil.  There are now two singularitys: one developed by Sylabs, and the other as part of the Linux Foundation.  Both are open source, and the split happened around version 3.10.  The version on Polaris is from Sylabs but for completeness, here is the Linux Foundation's version.  Note that the Linux Foundation version is renamed to apptainer - different name, roughly the same thing though divergence may happen after 2021's split.Why not docker?Docker containers require root privileges to run, which users do not have on Polaris.  That doesn't mean all your docker containers aren't useful, though.  If you have an existing docker container, you can convert it to singularity pretty easily:```bashSingularity can automatically download the dockerhub hosted container and build it as a singularity container:$ singularity build pytorch:22.06-py3.sing docker://nvcr.io/nvidia/pytorch:22.06-py3```Building containersBuilding containers is fairly straightforward, though the build times can occasionally make the debugging process tedious if that is needed.  Many containers can be built from existing libraries, or you can build via a recipe, or you can do a hybrid: start with an existing container and build on top of that.Full documentation of the build process is better referenced from the Sylabs website: Build a Container.In the docs below, we'll see how to build a container from nvidia (the pytorch container mentioned above), then we'll run it on the compute nodes.  We will see that the default container is missing a package we want, so we'll rebuild a new container based on the old one to add that package.TODO this part isn't done yet - have to validate container builds of mpi4py.By the way - building a container can sometimes use disk resources in your home directory you weren't expecting.  Check ~/.singularity if you need to clear a cache, and these environment variables sometimes help:```Expecting to do this on a compute node that has /tmp!export SINGULARITY_TMPDIR=/tmp/singularity-tmpdirmkdir $SINGULARITY_TMPDIRSINGULARITY_CACHEDIR=/tmp/singularity-cachedir/mkdir $SINGULARITY_CACHEDIR```If you aren't interested in any of that, just skip to the bottom to see the available containers.Default nvidia container:Build the latest nvidia container if you like:```bashSingularity can automatically download the dockerhub hosted container and build it as a singularity container:$ singularity build pytorch:22.06-py3.sing docker://nvcr.io/nvidia/pytorch:22.06-py3```Note that latest here mean when these docs were written, summer 2022.  It may be useful to get a newer container if you need the latest features.  You can find the pytorch container site here.  The tensorflow containers are here (though note that LCF doesn't prebuild the TF-1 containers typically).  You can search the full container registry hereRunning the new containerLet's take an interactive node to test the container (qsub -I -l walltime=1:00:00 -l select=1:system=polaris for example).When on the interactive node, re-load the modules you need:```bashmodule load singularity```And launch the container with a command like this:```bash$ singularity exec --nv -B /lus /soft/containers/pytorch/pytorch-22.06-py3.sing bash```A couple things are important to note here:  the --nv flag tells singularity that you want to use the nvidia GPUs from inside your container (more info here).  The -B flag is for "bind mount" (more info here) which tells singularity that you want to be able to access the /lus directory from inside your container applications.Once you start the container, you should be able to do the typical things (nvidia-smi, python, nvcc, etc.).  But this is an interactive shell, and typically running jobs is not an interactive process.  You can launch commands that aren't bash, as well:```bashDo this outside the container...$ echo "print('Hello from singularity')" >> test.py$ singularity exec --nv -B /lus /soft/containers/pytorch/pytorch-22.06-py3.sing python test.pyHello from singularity```(You can also use run or shell instead of exec for some uses: check out the (docs)[https://docs.sylabs.io/guides/3.8/user-guide/quick_start.html])What's in the container?If you are using this pytorch container to run pytorch, you may see this:```bash
+
+
+import torch
+
+
+
+
+
+torch.cuda.is_available()
+
+
+True
+
+
+import mpi4py
+
+
+Traceback (most recent call last):File "", line 1, in ModuleNotFoundError: No module named 'mpi4py'
+
+
+
+```In otherwords, we've got torch but no mpi4py or horovod.  There are two ways you could address this: install these packages in a way that's visible when you run the container (either in .local or a virtualenv) or rebuild the container to have them built in.Sometimes, you need to pass through environment variables into the container for one reason or another.  A good option for this is to use the --env flag to singularity (docs here).Extending a containerThe easiest way to extend a container is to build off of one that exists, and write a recipe you can build with --fakeroot.  This capability is expected on Polaris very shortly, though isn't here on day 1.TODO update the fakeroot section.Containers at ScaleAnd important aspect to using containers is to be able to launch them at scale.  Typically that involves using a single container per GPU, or 4 launches per node.  Containers are meant to communicate seamlessly with MPI, and pass through typically works.  Launch your container with mpirun/mpiexec, and then launch your application in the container as usual:```bashmpirun -n ${N_RANKS} -ppn 4 singularity exec [singularity args] ${CONTAINER} python cool_stuff.py```The reality is messier.  Containers at scale on Polaris don't cooperate out of the box with MPI, though we're working on it (as of July 2022). Typically a build script to do that looks something like this:```$ cat recipe.srBootstrap: dockerFrom: nvcr.io/nvidia/pytorch:22.06-py3%helpTo start your container simply trysingularity exec THIS_CONTAINER.simg bashTo use GPUs, trysingularity exec --nv THIS_CONTAINER.simg bash%labelsMaintainer coreyjadams%environment%post# Install mpi4py
+CC=$(which mpicc) CXX=$(which mpicxx) pip install --no-cache-dir mpi4py
+# Install horovod
+CC=$(which mpicc) CXX=$(which mpicxx) HOROVOD_WITH_TORCH=1 pip install --no-cache-dir horovod
+```And you build it like this:```bashsingularity build --fakeroot custom-torch-container.simg recipe.sr```You need network access to download the container from dockerhub (set the usual proxies) and to use fakeroot you need to use an interactive job - the scheduler enables and disables the fakeroot attributes in your job, and you have to explicitly request it:  --attrs fakeroot=true.TODO Need to validate the fakeroot docs.Available containersIf you just want to know what containers are available, here you go.Containers are stored at /soft/containers/, with a subfolder for pytorch and tensorflow.  The default nvidia containers "as-is" are available, and soon we will also distribute containers with mpi4p and horovod capabilities that work on Polaris.The latest containers are updated periodically.  If you have trouble with them, or a new container is available that you need (or want something outside to torch/tensorflow) please contact ALCF support at support@alcf.anl.gov.
+
+ ###########  pbs-qsub-options-table.md  ###########
+
+PBS Pro qsub OptionsVersion 1.2 2021-04-28 -l select and similar is a lower case "L", -I for interactive is an upper case "I"|Cobalt CLI | PBS CLI | PBS Directive | Function and Page Reference ||--- |----- | ----- | ---- ||-A \ | -A \ |#PBS Account_Name=\ | "Specifying Accounting String” UG-29 ||-n NODES--nodecount NODES |-l select=NODES:system=\  |One or more #PBS -l \=\ directives |"Requesting Resources” UG-51|-t --walltime |-l walltime=1:00:00  |One or more #PBS -l \=\ directives |"Requesting Resources” UG-51|-q |-q \ |#PBS -q \  #PBS -q @\ #PBS -q \@\ |"Specifying Server and/or Queue” UG-29|--env |-v \ | |"Exporting Specific Environment Variables” UG-126|--env |-V | #PBS -V|"Exporting All Environment Variables” UG-126|--attrs | Done via custom resources and select statements | |"Setting Job Attributes” UG-16|--dependencies=\ |-W depend=afterok:\| #PBS depend=... |"Using Job Dependencies” UG-107|-I--interactive |-I |Deprecated for use in a script |"Running Your Job Interactively” UG-121|-e --error= |-e \ | #PBS -e \#PBS Error_Path=\|"Paths for |--jobname |-N \ | #PBS -N \  #PBS -WJob_Name=\|"Specifying Job Name” UG-27|-o--output= |-o \ | #PBS -o \#PBS Output_Path=\|"Paths for Output and Error Files” UG-42|-M--notify see note #1 |-M \ -m \ -m be is suggested | #PBS -M \ #PBS -WMail_Users=\ #PBS -m \ #PBS -WMail_Points=\|"Setting Email Recipient List” UG-26||-u--umask |-W umask=\ |#PBS umask=\ |"Changing Linux Job umask” UG-45|-h |-h | #PBS -h |"Holding and Releasing Jobs” UG-115|--proccount See Note #2 |-l mpiprocsNot needed to get equivalent Cobalt functionality  |One or more #PBS -l \=\ directives |"Requesting Resources” UG-51| |-l \ |One or more #PBS -l \=\ directives |"Requesting Resources” UG-51PBS options that provide functionality above and beyond CobaltDepending on policy decisions not all of these options may be available.|Cobalt CLI | PBS CLI | PBS Directive | Function and Page Reference ||--- |----- | ----- | ---- ||N/A |-a \ | #PBS -a |"Deferring Execution” UG-119|N/A |-C “\”| |"Changing the Directive Prefix” UG-16|N/A |-c \ | #PBS -c |"Using Checkpointing” UG-113|N/A |-G | |"Submitting Interactive GUI Jobs on Windows” UG-125|N/A |-J X-Y[:Z] |#PBS -J |"Submitting a Job Array” UG-150|N/A |-j \ | #PBS Join_Path=\|"Merging Output and Error Files” UG-43|N/A |-k \ |#PBS Keep_Files=\ |"Keeping Output and Error Files on Execution Host” UG-44|N/A |-p \ | #PBS -p |"Setting Priority for Your Job” UG-120|N/A |-P \ |#PBS project=\ |"Specifying a Project for a Job” UG-27|N/A |-r \ | #PBS -r |"Allowing Your Job to be Re-run” UG-118|N/A |-R \ | |"Avoiding Creation of stdout and/or stderr” UG-43|N/A |-S \ | |"Specifying the Top Shell for Your Job” UG-19|N/A See Note #3 |-u \ |#PBS User_List=\|"Specifying Job Username” UG-28|N/A |-W block=true |#PBS block=true |"Making qsub Wait Until Job Ends” UG-120|N/A |-W group_list=\ |#PBS group_list=\ |"Specifying Job Group ID” UG-28|N/A |-W release_nodes_on_stageout=\ | |"Releasing Unneeded Vnodes from Your Job” UG-127|N/A |-W run_count=\ | |"Controlling Number of Times Job is Re-run” UG-119|N/A |-W sandbox=\ | |"Staging and Execution Directory: User Home vs. Job-specific” UG-31|N/A |-W stagein=\ |#PBS -W stagein=\@\:\[,...] |"Input/Output File Staging” UG-31|N/A |-W stageout=\ | #PBS -W stageout=\@\:\[,...] |"Input/Output File Staging” UG-31|N/A |-X | |"Receiving X Output from Interactive Linux Jobs” UG-124|N/A |-z |#PBS -z|"Suppressing Printing Job Identifier to stdout” UG-30Notes
+To get the equivalent mail notifications from PBS it requires two parameters the -M just like Cobalt, but also -m be (the be stands for beginning and end) to specify when the mails should go out. This will give you the same behavior as Cobalt.
+
+--proccount, while available, only changed behavior on the Blue Gene machines.  To get equivalent functionality just drop it from the CLI.  In PBS it does influence the PBS_NODES file.  See Section 5.1.3 in the PBS Users Guide page UG-78
+
+The following Cobalt options have no equivalent in PBS
+-  --cwd - use a script and cd to the directory you want to run from
+-  --user_list - There is no way to do this.  We will work on adding this functionality
+-  --debuglog - Are we going to try and generate the equivalent of a .cobalt file?
+
+The following Cobalt options were Blue Gene specific and no longer apply
+- --kernel
+- -K KERNELOPTIONS
+- --ion_kernel
+- --ion_kerneloption
+- --mode - see notes on running scripts, python, and executables
+- --geometry
+- --disable_preboot
+
+
+ ###########  gronkulator.md  ###########
+
+The Gronkulator: Job Status DisplayContent is still being developed. Please check back.
+
+ ###########  example-job-scripts.md  ###########
+
+Example Job ScriptsThis page contains a small collection of example job scripts users may find useful for submitting their jobs on Polaris. Additional information on PBS and how to submit these job scripts is available here. A simple example using a similar script on Polaris is available in the Getting Started Repo.CPU MPI-OpenMP ExampleThe following submit.sh example submits a 1-node job to Polaris with 16 MPI ranks per node and 2 OpenMP threads per rank. ```!/bin/shPBS -l select=1:system=polarisPBS -l place=scatterPBS -l walltime=0:30:00PBS -q workqPBS -A CatalystChange to working directorycd ${PBS_O_WORKDIR}MPI and OpenMP settingsNNODES=wc -l < $PBS_NODEFILENRANKS_PER_NODE=16NDEPTH=2NTHREADS=2NTOTRANKS=$(( NNODES * NRANKS_PER_NODE ))echo "NUM_OF_NODES= ${NNODES} TOTAL_NUM_RANKS= ${NTOTRANKS} RANKS_PER_NODE= ${NRANKS_PER_NODE} THREADS_PER_RANK= ${NTHREADS}"mpiexec -n ${NTOTRANKS} --ppn ${NRANKS_PER_NODE} --depth=${NDEPTH} --cpu-bind depth --env OMP_NUM_THREADS=${NTHREADS} -env OMP_PLACES=threads ./hello_affinity```Each Polaris node has 1 Milan CPU with a total of 32 cores and each core supports 2 threads. The process affinity in this example is setup to map each MPI rank to 2 cores utilizing all one thread on each core. The OpenMP settings bind each OpenMP thread to one hardware thread within a core such that all 32 cores are utilized. Some additional notes on the contents of the script before the mpiexec command follow.
+cd ${PBS_O_WORKDIR} : change into the working directory from where qsub was executed.
+
+NNODES= `wc -l < $PBS_NODEFILE`: one method for determine the total number of nodes allocated to a job.
+
+NRANKS_PER_NODE=16 : This is a helper variable to set the number of MPI ranks for each node to 16.
+
+NDEPTH=2 : This is a helper variable to space MPI ranks 2 "slots" from each other. In this example, individual threads correspond to a slot. This will be used together with the --cpu-bind option from mpiexec and additional binding options are available (e.g. numa).
+
+NTHREADS=2 : This is a helper variable to set the number of OpenMP threads per MPI rank. 
+
+NTOTRANKS=$(( NNODES * NRANKS_PER_NODE)) : This is a helper variable calculating the total number of MPI ranks spanning all nodes in the job.
+Information on the use of mpiexec is available via man mpiexec. Some notes on the specific options used in the above example follow.
+-n ${NTOTRANKS} : This is specifying the total number of MPI ranks to start.
+
+--ppn ${NRANKS_PER_NODE} : This is specifying the number of MPI ranks to start on each node.
+
+--depth=${NDEPTH} : This is specifying how many cores/threads to space MPI ranks apart on each node.
+
+--cpu bind depth : This is indicating the number of cores/threads will be bound to MPI ranks based on the depth argument.
+
+--env OMP_NUM_THREADS=${NTHREADS} : This is setting the environment variable OMP_NUM_THREADS : to determine the number of OpenMP threads per MPI rank.
+
+--env OMP_PLACES=threads : This is indicating how OpenMP should distribute threads across the resource, in this case across hardware threads.
+GPU MPI ExampleUsing the CPU job submission example above as a baseline, there are not many additional changes needed to enable an application to make use of the 4 NVIDIA A100 GPUs on each Polaris node. In the following 2-node example (because #PBS -l select=2 indicates the number of nodes requested), 4 MPI ranks will be started on each node assigning 1 MPI rank to each GPU in a round-robin fashion. A simple example using a similar job submission script on Polaris is available in the Getting Started Repo.```!/bin/shPBS -l select=2:system=polarisPBS -l place=scatterPBS -l walltime=0:30:00PBS -q workqPBS -A CatalystEnable GPU-MPI (if supported by application)export MPICH_GPU_SUPPORT_ENABLED=1Change to working directorycd ${PBS_O_WORKDIR}MPI and OpenMP settingsNNODES=wc -l < $PBS_NODEFILENRANKS_PER_NODE=4NDEPTH=8NTHREADS=1NTOTRANKS=$(( NNODES * NRANKS_PER_NODE ))echo "NUM_OF_NODES= ${NNODES} TOTAL_NUM_RANKS= ${NTOTRANKS} RANKS_PER_NODE= ${NRANKS_PER_NODE} THREADS_PER_RANK= ${NTHREADS}"For applications that internally handle binding MPI/OpenMP processes to GPUsmpiexec -n ${NTOTRANKS} --ppn ${NRANKS_PER_NODE} --depth=${NDEPTH} --cpu-bind depth --env OMP_NUM_THREADS=${NTHREADS} -env OMP_PLACES=threads ./hello_affinityFor applications that need mpiexec to bind MPI ranks to GPUsmpiexec -n ${NTOTRANKS} --ppn ${NRANKS_PER_NODE} --depth=${NDEPTH} --cpu-bind depth --env OMP_NUM_THREADS=${NTHREADS} -env OMP_PLACES=threads ./set_affinity_gpu_polaris.sh ./hello_affinity```The OpenMP-related options are not needed if your application does not use OpenMP. Nothing additional is required on the mpiexec command for applications that internally manage GPU devices and handle the binding of MPI/OpenMP processes to GPUs. A small helper script is available for those with applications that rely on MPI to handle the binding of MPI ranks to GPUs. Some notes on this helper script and other key differences with the early CPU example follow.
+export MPICH_GPU_SUPPORT_ENABLED=1 : For applications that support GPU-enabled MPI (i.e. use MPI to communicate data directly between GPUs), this environment variable is required to enable GPU support in Cray's MPICH. Ommitting this will result in a segfault. Support for this also requires that the application was linked against the the GPU Transport Layer library (e.g. -lmpi_gtl_cuda), which is automatically included for users by the craype-accel-nvidia80 module in the default environment on Polaris. If this gtl library is not properly linked, then users will see a error message indicating that upon executing the first MPI command that uses a device pointer.
+
+./set_affinity_gpu_polaris.sh : This script is useful for those applications that rely on MPI to bind MPI ranks to GPUs on each node. Such a script is not necessary when the application handles process-gpu binding. This script simply sets the environment variable CUDA_VISIBLE_DEVICES to a restricted set of GPUs (e.g. each MPI rank sees only one GPU). Otherwise, users would find that all MPI ranks on a node will target the first GPU likely having a negative impact on performance. An example for this script is available in the Getting Started repo and copied below.
+Setting MPI-GPU affinityThe CUDA_VISIBLE_DEVICES environment variable is provided for users to set which GPUs on a node are accessible to an application or MPI ranks started on a node.A copy of the small helper script provided in the Getting Started repo is provided below for reference.```$ cat ./set_affinity_gpu_polaris.sh!/bin/bashnum_gpus=4gpu=$((${PMI_LOCAL_RANK} % ${num_gpus}))export CUDA_VISIBLE_DEVICES=$gpuecho “RANK= ${PMI_RANK} LOCAL_RANK= ${PMI_LOCAL_RANK} gpu= ${gpu}”exec "$@"```The script is hard-coded for 4 GPUs on a Polaris node and simply pairs MPI ranks to GPUs in a round-robin fashion setting CUDA_VISIBLE_DEVICES appropriately. The echo command prints a helpful message for the user to confirm the desired mapping is achieved. Users are encouraged to edit this file as necessary for their particular needs. 
+IMPORTANT: If planning large-scale runs with many thousands of MPI ranks, then it is advised to comment out the echo command so as not to have thousands of lines of output written to stdout. 
+
+
+ ###########  job-and-queue-scheduling.md  ###########
+
+Documentation / Tools
+The PBS "BigBook" - This is really excellent.  I highly suggest you download it and search through it when you have questions.  Can be found at the link above or online.
+
+Cobalt qsub options to PBS qsub options - shows how to map cobalt command line options to PBS command line options.  Can be found at the link above.
+
+qsub2pbs  - Installed on Theta and Cooley.  Pass it a Cobalt command line and it will convert it to a PBS command line.  Add the --directives option and it will output an executable script.  Note that it outputs -l select=system=None.  You would need to change the None to whatever system you wanted to target (polaris, aurora, etc).
+IntroductionAt a high level, getting computational tasks run on systems at ALCF  is a two step process:
+You request and get allocated resources (compute nodes) on one or more of the systems.  This is accomplished by interacting with the job scheduler / workload manager.  In the ALCF we use PBS Professional.
+
+You execute your tasks on those resources.  This is accomplished in your job script by interacting with various system services (MPI, OpenMP, the HPE PALS job launch system, etc.)
+Our documentation is organized in two sections aligned with the two steps described above.Obtaining and managing compute resources at ALCFDefinitions and noteschunk: A set of resources allocated as a unit to a job. Specified inside a selection directive. All parts of a chunk come from the same host.  In a typical MPI (Message-Passing Interface) job, there is one chunk per MPI process.vnode: *A virtual node, or vnode, is an abstract object representing a host or a set of resources which form a usable part of an execution host. This could be an entire host,or a nodeboard or a blade. A single host can be made up of multiple vnodes. Each vnode can be managed and scheduled independently. Each vnode in a complex must have a unique name. Vnodes on a host can share resources, such as node-locked licenses.*  PBS operates on vnodes.  A vnode can, and in ALCF often will, represent an entire host, but it doesn't have to.  For instance, there is a mode on Polaris where we could have each physical host look like four vnodes, each with 16 threads, 1/4 of the RAM and one A100.ncpus: In ALCF, given the way we configure PBS, this equates to a hardware thread.  For example, Polaris has a single socket with a 32 core CPU, each with two threads, so PBS reports that as ncpus=64.ngpus: The number of GPUs.  On Polaris, this will generally be four.  However, if we enable Multi Instance GPU (MIG) mode and use cgroups it could be as high as 28.The basicsIf you are an existing ALCF user and are familiar with Cobalt, you will find the PBS commands very similar though the options to qsub are quite different.  Here are the "Big Four" commands you will use:
+qsub - request resources (compute nodes) to run your job and start your script/executable on the head node.
+
+qstat - check on the status of your request
+
+qalter - update your request for resources
+
+qdel - cancel an uneeded request for resources
+qsub - submit a job to run
+Users Guide, Section 2, page UG-11 and Reference Guide Sec 2.59, page RG-214
+The single biggest difference between Cobalt and PBS is the way you select resources when submitting a job.  In Cobalt, every system had its own Cobalt server and you just specified the number of nodes you wanted (-n).  With PBS, we are planning on running a single "PBS Complex" which means there will be a single PBS server for all systems in the ALCF and you need to specify enough constraints to get your job to run on the resources you want/need.  One advantage of this is that getting resources from two different systems or "co-scheduling" is trivially possible.Resource Selection and Job PlacementSection 2.59.2.6 RG-217 Requesting Resources and Placing jobsResources come in two flavors:
+Job Wide: Walltime is the most common example of a job wide resource.  You use the -l option to specify job wide resources, i.e. -l walltime=06:00:00.  All the resources in the job have the same walltime.
+
+-l <resource name>=<value>[,<resource name>=<value> ...]
+
+Chunks: (see the definition above) This is how you describe what your needs are to run your job.  You do this with the -l select= syntax.  In the ALCF, every node has a resource called system which is set to the system name it belongs to (Polaris, Aurora, etc).  This means you can typically get away with the very simple -l select=128:system=polaris which will give you 128 complete nodes on Polaris.  
+
+-l select=[<N>:]<chunk>[+[<N>:]<chunk> ...] where N specifies how many of that chunk and a chunk is of the form:
+
+<resource name>=<value>[:<resource name>=<value> ...]
+
+Here is an example that would select resources from a machine like Polaris (A100s) and a hypothetical vis machine with A40 GPUs.  Note that PBS takes care of co-scheduling the nodes on the two systems for you transparently:
+ * `-l select=128:ncpus=64:ngpus=4:gputype=A100+32:ncpus=64:ngpus=2:gputype=A40`
+You also have to tell PBS how you want the chunks distributed across the physical hardware.  You do that via the -l place option:
+-l place=[<arrangement>][: <sharing> ][: <grouping>] where
+
+arrangement is one of free | pack | scatter | vscatter
+ * unless you have a specific reason to do otherwise, you probably want to set this to `scatter`, otherwise you may not get what you expect.  For instance on a host with ncpus=64, if you requested `-l select=8:ncpus=8` you could end up with all of our chunks on one node.
+ * `free` means PBS can distribute them as it sees fit
+ * `pack` means all chunks from one host.  Note that this is not the minimum number of hosts, it is one host.  If the chunks can't fit on one host, the qsub will fail.
+ * `scatter` means take only one chunk from any given host.
+ * `vscatter` means take only one chunk from any given vnode.  If a host has multiple vnodes, you could end up with more than one chunk on the host.
+
+sharing is one of excl | shared | exclhost where
+ * NOTE: Node configuration can override your requested sharing mode.  For instance, in most cases ALCF sets the nodes to `force_exclhost`, so normally you don't have to specify this.
+ * `excl` means this job gets the entire vnode
+ * `shared` means the vnode could be shared with another job from another user.
+ * `exclhost` means this job gets the entire host, even if it has multiple vnodes.
+
+group=<resource name>
+ * Below you will see the rack and dragonfly group mappings.  If you wanted to ensure that all the chunks came from dragonfly group 2, you could specify `group=g2`.
+There is an alternative to using the group= syntax.  The downside to group= is that you have to specify a specific dragonfly group, when what you may really want is for your chunks to all be in one dragonfly group, but you don't care which one.  On each node, we have defined two resources, one called tier0 which is equal to the rack the node is in (each rack has a switch in it) and tier1 which is equal to the dragonfly group it is in.  We have defined placement sets for the tier0 and tier1 resources.  If you use placement sets it will preferentially choose nodes from the specified resource, but it won't drain or delay your job start.Here is a heavily commented sample PBS submission script:```!/bin/bashUG Section 2.5, page UG-24 Job Submission OptionsAdd another # at the beginning of the line to comment out a lineNOTE: adding a switch to the command line will override values in this file.These options are MANDATORY at ALCF; Your qsub will fail if you don't provide them.PBS -A PBS -l walltime=HH:MM:SSHighly recommendedThe first 15 characters of the job name are displayed in the qstat output:PBS -N If you need a queue other than the default (uncomment to use)PBS -q Controlling the output of your applicationUG Sec 3.3 page UG-40 Managing Output and Error FilesBy default, PBS spools your output on the compute node and then uses scp to move it thedestination directory after the job finishes.  Since we have globally mounted file systemsit is highly recommended that you use the -k option to write directly to the destinationthe doe stands for direct, output, errorPBS -k doePBS -o PBS -e If you want to merge stdout and stderr, use the -j optionoe=merge stdout/stderr to stdout, eo=merge stderr/stdout to stderr, n=don't mergePBS -j nControlling email notificationsUG Sec 2.5.1, page UG-25 Specifying Email NotificationWhen to send email b=job begin, e=job end, a=job abort, j=subjobs (job arrays), n=no mailPBS -m beBe default, mail goes to the submitter, use this option to add others (uncomment to use)PBS -M Setting job dependenciesUG Section 6.2, page UG-107 Using Job DependenciesThere are many options for how to set up dependancies;  afterok will give behavior similarto Cobalt (uncomment to use)PBS depend=afterok::Environment variables (uncomment to use)Section 6.12, page UG-126 Using Environment VariablesSect 2.59.7, page RG-231 Enviornment variables PBS puts in the job environmentPBS -v -v a=10, "var2='A,B'", c=20, HOME=/home/zzzPBS -V exports all the environment variables in your environnment to the compute nodeThe rest is an example of how an MPI job might be set upecho Working directory is $PBS_O_WORKDIRcd $PBS_O_WORKDIRecho Jobid: $PBS_JOBIDecho Running on host hostnameecho Running on nodes cat $PBS_NODEFILENNODES=wc -l < $PBS_NODEFILENRANKS=1           # Number of MPI ranks per nodeNDEPTH=1           # Number of hardware threads per rank, spacing between MPI ranks on a nodeNTHREADS=1         # Number of OMP threads per rank, given to OMP_NUM_THREADSNTOTRANKS=$(( NNODES * NRANKS ))echo "NUM_OF_NODES=${NNODES}  TOTAL_NUM_RANKS=${NTOTRANKS}  RANKS_PER_NODE=${NRANKS}  THREADS_PER_RANK=${NTHREADS}"mpiexec --np ${NTOTRANKS} -ppn ${NRANKS} -d ${NDEPTH} -env OMP_NUM_THREADS=${NTHREADS} ./hello_mpi```qsub examples - WE NEED MORE EXAMPLES
+qsub -A my_allocation -l select=4:system=polaris -l walltime=30:00 -- a.out
+* run a.out on 4 chunks on polaris with a walltime of 30 minutes; charge my_allocation;
+* Since we allocate full nodes on Polaris, 4 chunks will be 4 nodes.  If we shared nodes, that would be 4 cores.
+* use the -- (dash dash) syntax when directly running an executable.
+
+qsub -A my_allocation -l place=scatter -l select=32:ncpus=32 -q workq -l walltime=30:00 mpi_mm_64.sh
+* 32 chunks on any system that meets the requirements; each chunk must have 32 HW threads; `place=scatter` means use a different vnode for each chunk, even if you could fit more than one on a vnode; use the queue named workq.
+qstat - Query Job/Queue Status
+Users Guide Sec. 10.2, page UG-177; Reference Guide Sec. 2.57, page RG-198 
+
+NOTE: By default, the columns are fixed width and will truncate information.
+
+The most basic: qstat - will show all jobs queued and running in the system
+
+Only a specific users jobs: qstat -u <my username>
+
+Detailed information about a specific job: qstat -f <jobid> [<jobid> <jobid>...]
+* The comment field with the `-f` output can often tell you why your job isn't running or why it failed.
+
+Display status of a queue: qstat -Q <queue name>
+
+Display status of a completed job: qstat -x <jobid> [<jobid> <jobid>...]
+* This has to be turned on (we have);  It is configured to keep 2 weeks of history.
+
+Get estimated start time: qstat -T <jobid>
+
+Make output parseable: qstat -F [json | dsv]
+* That is `dsv` (delimeter) not `csv`;  The default delimiter is `|`, but -D can change it for instance `-D,` would use a comma instead.
+qalter - Alter a job submission
+Users Guide Sec. 9.2, page UG-164; Reference Guide Sec. 2.42, page RG-128
+
+Basically takes the same options as qsub;  Say you typoed and set the walltime to 300 minutes instead of 30 minutes.  You could fix it (if the job had not started running) by doing qalter -l walltime=30:00 <jobid> [<jobid> <jobid>...] 
+
+The new value overwrites any previous value.
+qdel - Delete a job:
+Users Guide Sec. 9.3, page UG-166; Reference Guide Sec. 2.43, page RG-141
+
+qdel <jobid> [<jobid> <jobid>...]
+qmove - Move a job to a different queue
+Users Guide Sec. 9.7, page UG-169; Reference Guide Sec. 2.48, page RG-173
+
+qmove <new queue> <jobid> [<jobid> <jobid>...]
+
+Only works before a job starts running
+qhold, qrls - Place / release a user hold on a job
+Reference Guide Sec 2.46, page RG-148 and Sec 2.52, page RG-181
+
+[qhold | qrls] <jobid> [<jobid> <jobid>...]
+qselect - Query jobids for use in commands
+Users Guide Sec. 10.1, page UG-171; Reference Guide Sec. 2.54, page RG-187
+
+qdel `qselect -N test1` will delete all the jobs that had the job name set to test1.
+qmsg Write a message string into one or more output files of the job
+Users Guide Sec. 9.4, page UG-167; Reference Guide Sec. 2.49, page RG-175
+
+qmsg -E -O "This is the message" <jobid> [<jobid> <jobid>...]
+
+-E writes it to standard error, -O writes it to standard out
+qsig Send a signal to a job
+Users Guide Sec. 9.5, page UG-168; Reference Guide Sec. 2.55, page RG-193
+
+qsig -s <signal> <jobid> [<jobid> <jobid>...]
+
+If you don't specify a signal, SIGTERM is sent.
+tracejob Get log information about your job
+Reference Guide Sec 2.61, page RG-236
+
+tracejob <jobid>
+Getting information about the state of the resourcesqstat Get information about the server or queues
+Users Guide Sec. 10.3 & 10.4, page UG-184 - UG-187
+
+qstat -B[f] - Check the server status
+
+qstat -Q[f] <queue name> - Check the queue status 
+
+TODO: Add qmgr commands for checking queue and server status
+pbsnodes Get information about the current state of nodes
+Reference Guide Sec 2.7 page RG-36
+
+This is more for admins, but it can tell you what nodes are free (state), how many "CPUs" which is actually the number of threads (ncpus), how many GPUs (ngpus) which with A100s can change depending on the MIG mode, and if the node is shared or not (sharing).
+pbsnodes -av - Everything there is to know about a node```aps-edge-dev-04 Mom = aps-edge-dev-04.mcp.alcf.anl.gov
+ ntype = PBS
+ state = free
+ pcpus = 128
+ resources_available.arch = linux
+ resources_available.host = aps-edge-dev-04
+ resources_available.mem = 527831088kb
+ resources_available.ncpus = 128
+ resources_available.ngpus = 1
+ resources_available.vnode = aps-edge-dev-04
+ resources_assigned.accelerator_memory = 0kb
+ resources_assigned.hbmem = 0kb
+ resources_assigned.mem = 0kb
+ resources_assigned.naccelerators = 0
+ resources_assigned.ncpus = 0
+ resources_assigned.vmem = 0kb
+ resv_enable = True
+ sharing = force_exclhost
+ license = l
+ last_state_change_time = Tue Oct  5 21:58:57 2021
+```pbsnodes -avSj - A nice table to see what is free and in use```(base) [allcock@edtb-01 20220214-22:53:26]> pbsnodes -avSj                                                    mem       ncpus   nmics   ngpus
+vnode           state           njobs   run   susp      f/t        f/t     f/t     f/t   jobsedtb-01         free                 0     0      0      0 b/0 b     0/0     0/0     0/0 --edtb-02         free                 0     0      0      0 b/0 b     0/0     0/0     0/0 --edtb-03         free                 0     0      0      0 b/0 b     0/0     0/0     0/0 --edtb-04         free                 0     0      0      0 b/0 b     0/0     0/0     0/0 --edtb-01[0]      free                 0     0      0  250gb/250gb   64/64     0/0     1/1 --edtb-01[1]      free                 0     0      0  251gb/251gb   64/64     0/0     1/1 --edtb-02[0]      free                 0     0      0  250gb/250gb   64/64     0/0     1/1 --edtb-02[1]      free                 0     0      0  251gb/251gb   64/64     0/0     1/1 --edtb-03[0]      free                 0     0      0  250gb/250gb   64/64     0/0     1/1 --edtb-03[1]      free                 0     0      0  251gb/251gb   64/64     0/0     1/1 --edtb-04[0]      free                 0     0      0  250gb/250gb   64/64     0/0     1/1 --edtb-04[1]      free                 0     0      0  251gb/251gb   64/64     0/0     1/1 --```pbsnodes -l - (lowercase  l) see which nodes are down;  The comment often indicates why it is down```[20220217-21:10:31]> pbsnodes -lx3014c0s19b0n0       offline,resv-exclusive Xid 74 -- GPUs need reseatx3014c0s25b0n0       offline,resv-exclusive Checking on ConnectX-5 firmware```Polaris specific stuffPolaris Rack and Dragonfly group mappings
+Racks contain (7) 6U chassis; Each chassis has 2 nodes for 14 nodes per rack
+
+The hostnames are of the form xRRPPc0sUUb[0|1]n0 where:
+* RR is the row {30, 31, 32}
+* PP is the position in the row {30 goes 1-16, 31 and 32 go 1-12}
+* c is chassis and is always 0
+* s stands for slot, but in this case is the RU in the rack and values are {1,7,13,19,25,31,37}
+* b is BMC controller and is 0 or 1 (each node has its own BMC)
+* n is node, but is always 0 since there is only one node per BMC
+
+So, 16+12+12 = 40 racks * 14 nodes per rack = 560 nodes.
+
+Note that in production group 9 (the last 4 racks) will be the designated on-demand racks
+
+The management racks are x3000 and X3100 and are dragonfly group 10
+
+The TDS rack is x3200 and is dragonfly group 11 
+|g0 |g1 |g2 |g3 |g4 |g5 |g6 |g7 |g8 |g9||----|----|----|----|----|----|----|----|----|----||x3001-g0   |x3005-g1   |x3009-g2   |x3013-g3   |x3101-g4 |x3105-g5 |x3109-g6 |x3201-g7 |x3205-g8 |x3209-g9||x3002-g0   |x3006-g1   |x3010-g2   |x3014-g3   |x3102-g4 |x3106-g5 |x3110-g6 |x3202-g7 |x3206-g8 |x3210-g9||x3003-g0   |x3007-g1   |x3011-g2   |x3015-g3   |x3103-g4 |x3107-g5 |x3111-g6 |x3203-g7 |x3207-g8 |x3211-g9 ||x3004-g0   |x3008-g1   |x3012-g2   |x3016-g3   |x3104-g4 |x3108-g5 |x3112-g6 |x3204-g7 |x3208-g8 |x3212-g9Controlling the execution on your allocated resourcesRunning MPI+OpenMP ApplicationsOnce a submitted job is running calculations can be launched on the compute nodes using mpiexec to start an MPI application. Documentation is accessible via man mpiexec and some helpful options follow.
+-n total number of MPI ranks
+
+-ppn number of MPI ranks per node
+
+--cpu-bind CPU binding for application
+
+--depth number of cpus per rank (useful with --cpu-bind depth)
+
+--env set environment variables (--env OMP_NUM_THREADS=2)
+
+--hostfile indicate file with hostnames (the default is --hostfile $PBS_NODEFILE)
+A sample submission script with directives is below for a 4-node job with 32 MPI ranks on each node and 8 OpenMP threads per rank (1 per CPU).```!/bin/bashPBS -N AFFINITYPBS -l select=4:ncpus=256PBS -l walltime=0:10:00NNODES=wc -l < $PBS_NODEFILENRANKS=32 # Number of MPI ranks to spawn per nodeNDEPTH=8 # Number of hardware threads per rank (i.e. spacing between MPI ranks)NTHREADS=8 # Number of software threads per rank to launch (i.e. OMP_NUM_THREADS)NTOTRANKS=$(( NNODES * NRANKS ))echo "NUM_OF_NODES= ${NNODES} TOTAL_NUM_RANKS= ${NTOTRANKS} RANKS_PER_NODE= ${NRANKS} THREADS_PER_RANK= ${NTHREADS}"cd /home/knight/affinitympiexec --np ${NTOTRANKS} -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind depth -env OMP_NUM_THREADS=${NTHREADS} ./hello_affinity```Running GPU-enabled ApplicationsGPU-enabled applications will similarly run on the compute nodes using the above example script. 
+The environment variable MPICH_GPU_SUPPORT_ENABLED=1 needs to be set if your application requires MPI-GPU support whereby the MPI library sends and recieves data directly from GPU buffers. In this case, it will be important to have the craype-accel-nvidia80 module loaded both when compiling your application and during runtime to correctly link against a GPU Transport Layer (GTL) MPI library. Otherwise, you'll likely see GPU_SUPPORT_ENABLED is requested, but GTL library is not linked errors during runtime.
+
+If running on a specific GPU or subset of GPUs is desired, then the CUDA_VISIBLE_DEVICES environment variable can be used. For example, if one only wanted an application to access the first two GPUs on a node, then setting CUDA_VISIBLE_DEVICES=0,1 could be used.
+Binding MPI ranks to GPUsThe Cray MPI on Polaris does not currently support binding MPI ranks to GPUs. For applications that need this support, this instead can be handled by use of a small helper script that will appropriately set CUDA_VISIBLE_DEVICES for each MPI rank. One example is available here where each MPI rank is similarly bound to a single GPU with round-robin assignment.A example set_affinity_gpu_polaris.sh script follows where GPUs are assigned round-robin to MPI ranks.```!/bin/bashnum_gpus=4gpu=$((${PMI_LOCAL_RANK} % ${num_gpus}))export CUDA_VISIBLE_DEVICES=$gpuecho “RANK= ${PMI_RANK} LOCAL_RANK= ${PMI_LOCAL_RANK} gpu= ${gpu}”exec "$@"```This script can be placed just before the executable in the mpiexec command like so.```mpiexec -n ${NTOTRANKS} --ppn ${NRANKS_PER_NODE} --depth=${NDEPTH} --cpu-bind depth ./set_affinity_gpu_polaris.sh ./hello_affinity```Users with different needs, such as assigning multiple GPUs per MPI rank, can modify the above script to suit their needs.Need help from applications people for this section
+Thinking of things like:
+
+How do you set affinity
+
+Nvidia specific stuff
+
+There is a PALS specific thing to tell you what rank you are in a node?
+
+Should Chris cook up example running four mpiexec on different GPUs and separate CPUs or just rely on PBS's vnode (discussion at very top here)?
+
+
+ ###########  pbs-admin-quick-start-guide.md  ###########
+
+PBS Admin Quick Start GuideThe single most important thing I can tell you is where to get the PBS BigBook.  It is very good and a search will usually get you what you need if it isn't in here.
+PBS Admin Quick Start Guide
+
+Checking / Setting Node Status
+
+Troubleshooting
+
+Starting, stopping, restarting, status of the daemons:
+
+Starting, stopping scheduling across the entire complex
+
+Starting, stopping queues:
+
+"Boosting" jobs (running them sooner)
+
+Reservations
+
+MIG Mode
+
+Rack and Dragonfly group mappings
+Checking / Setting Node StatusThe pbsnodes command is your friend.
+check status
+
+pbsnodes -av gives you everything; grep will be useful here
+
+pbsnodes -avSj give you a nice table summary
+
+pbsnodes -l lists the nodes that are offline
+
+Taking nodes on and offline
+
+pbsnodes -C <comment> -o <nodelist> will mark a node offline in PBS (unschedulable)
+  * Adding the time and date and why you took it offline in the comment is helpful
+  * `<nodelist>` is space separated
+
+pbsnodes -r <node list> will attempt to bring a node back online
+Troubleshooting
+PBS_EXEC (where all the executables are): /opt/pbs/[bin|sbin]
+
+PBS_HOME (where all the data is): /var/spool/pbs
+
+logs: /var/spool/pbs/[server|mom|sched|comm]_logs
+
+config: /var/spool/pbs/[server|mom|sched]_priv/
+
+/etc/pbs.conf - Reference Guide Section 9.1, page RG-371 
+
+qstat -[x]f [jobid]
+
+the -x shows jobs that have already completed.  We are currently holding two weeks history.
+
+the comment field is particularly useful.  It will tell you why it failed, got held, couldn't run, etc..
+
+The jobid is optional.  Without it you get all jobs.
+
+tracejob <jobid> 
+
+This seems to work better on pbs0, though I haven't completely figured out the rules
+
+This does a rudimentary aggregation and filter of the logs for you.
+
+qselect -  Reference Guide Section 2.54 page RG-187.
+
+allows you to query and return jobids that meet criteria for instance the command below would delete all the jobs from Yankee Doodle Dandy, username yddandy:
+
+qdel `qselect -u yddandy`
+
+Error Code Table (Reference Guide Chapter 14, RG-391)
+
+If a CLI command (qmgr, qsub, whatever) spits out an error code at you, go look it up in the table, you may well save yourself a good bit of time.
+
+We are going to try and either get the error text to come with the code or write a utility to look it up and have that on all the systems.
+Starting, stopping, restarting, status of the daemons:
+Server: on pbs0 run systemctl [start | stop |restart | status] pbs
+
+MoM:
+
+If you only want to restart a single MoM, ssh to the host and issue the same commands as above for ther server.
+
+If you want to restart the MoM on every compute node, ssh admin.polaris then do: pdsh -g custom-compute "systemctl [start | stop |restart | status] pbs" 
+Starting, stopping scheduling across the entire complexqmgr -c "set server scheduling = [True | False]IMPORTANT NOTE: If we are running a single PBS complex for all our systems (same server is handling Polaris, Aurora, Cooley2, etc) this will stop scheduling on everything.To check the current status you may do: qmgr -c "list server scheduling"Starting, stopping queues:
+started: Can you queue a job or not
+
+enabled: Will the scheduler run jobs that are in the queue
+So if a queue is started, but not enabled, users can issue qsubs and the job will get queued, but nothing will run until we renable the queue.  Running jobs are unaffected.qmgr -c set queue <queue name> started = [True | False]qmgr -c set queue <queue name> enabled = [True | False]"Boosting" jobs (running them sooner)There are two ways you can run a job sooner:
+qmove run_next <jobid> 
+2. Because of the way policy is set for the acceptance testing period, any job in the `run_next` queue will run before jobs in the default `workq` with the exception of jobs that are backfilled.  So by moving the job into the `run_next` queue, you moved it to the front of the line.  There are no restrictions on this, so please do not abuse it.
+
+qorder <jobid> <jobid>
+
+If you don't necessarily need it to run next, but just want to rearrange the order a bit, you can use qorder which swaps the positions of the specified jobids.  So, if one of them was 10th in line and one was 20th, they would switch positions. 
+ReservationsMost of the reservation commands are similar to the job commands, but prefixed with pbs_r instead of q: pbs_rsub, pbs_rstat, pbs_ralter, pbs_rdel.  You get the picture.  In general, their behavior is reasonably similar to the equivalent jobs commands.  Note that by default, users can set their own reservations.  We have to use a hook to prevent that. ADD THE HOOK NAME ONCE WE HAVE IT SET.
+There are three types of reservations:
+
+Advance and standing reservations - reservations for users;  Note that you typically don't specify the nodes.  You do a resource request like with qsub and PBS will find the nodes for you.
+
+job-specific now reservations - we have not used these.  Where they could come in handy is for debugging.  A user gets a job through, we convert it to a job-specific reservation, then if their job dies, they don't have to wait through the queue again, they can keep iterating until the wall time runs out.
+
+maintenance reservations. - You can explicitly set which hosts to include in the reservation.
+
+Also note that reservations occur in two steps.  The pbs_rsub will return with an ID but will say unconfirmed.  That means it was syntactically correct, but PBS hasn't figured out if the resources are available yet.  Once it has the resources, it will switch to confirmed.  This normally is done as fast as you can run pbs_rstat
+
+-R (start) -E (end) are in "datetime" format: [[[[CC]YY]MM]DD]hhmm[.SS] 
+
+1315, 171315, 12171315, 2112171315 and 202112171315 would all be Dec 17th, 2021 @ 13:15
+ * If that is in the future they are all equivalent and valid
+ * If it were Dec 17th, 2021 @ 1400, then 1315 would default to the next day @ 14:00, the rest would be errors because they are in the past.
+ * Be careful or this will bite you.  It will confirm the reservation and you will expect it to start in a few minutes, but it is actually for tomorrow.
+
+pbs_rsub -N rsub_test -R 2023 -D 05:00 -l select=4
+
+probably not what you think: resv_nodes = (edtb-03[0]:ncpus=1)+(edtb-03[0]:ncpus=1)+(edtb-03[0]:ncpus=1)+(edtb-03[0]:ncpus=1)  It gave me 4 cores on the same node.
+
+pbs_rsub -N rsub_test -R 2023 -D 05:00 -l select=2 -l place=scatter
+
+Getting closer: resv_nodes = (edtb-01[0]:ncpus=1)+(edtb-02[0]:ncpus=1)
+
+The -l place=scatter got me two different nodes, but edtb allows sharing, so I got one thread on each node, but there were actually jobs running on those nodes at the time. On Polaris, since the nodes are force_exclhost that wouldn't have been an issue.
+
+pbs_rsub -N rsub_test -R 2217 -D 05:00 -l select=2:ncpus=64 -l place=scatter:excl This gave me what I wanted:
+* `resv_nodes = (edtb-03[0]:ncpus=64)+(edtb-04[0]:ncpus=64)`
+* Leaving it to default to `ncpus=1` should work, but asking for them all isn't a bad idea.
+
+pbs_rsub -N rsub_test -R 1200 -D 05:00 --hosts x3004c0s1b0n0 x3003c0s25b0n0...
+
+If you use --hosts it makes it a maintenance reservation.  You can't / don't need to add -l select or -l place on a maintenance reservation.  PBS will set it for you and will make it the entire host and exclusive access.  Nodes don't have to be up.  If jobs are running they will continue to run.  This will override any other reservation.
+
+pbs_ralter You can use this to change attributes of the reservation (start time, end time, how many nodes, which users can access it, etc).  Works just like qalter for jobs. 
+
+pbs_rdel <reservation id>  This will kill all running jobs, delete the queue, meaning you lose any jobs that were in the queue, and release all the resources.
+
+NOTE: once the reservation queue is in place, you use all the normal jobs commands (qsub, qalter, qdel, etc.) to manipulate the jobs in the queue.  On the qsub you have to add -q <reservation queue name>
+Giving users access to the reservationBy default, only the person submitting the reservation will be able to submit jobs to the reservation queue.  You change this with the -U +username@*,+username@*,....  You can add this to the initial pbs_rsub or use pbs_ralter after the fact.  The plus is basically ALLOW. We haven't tested it, but you can also theoretically use a minus for DENY.  If there is a way to specify groups, we are not aware of it.  This is a bit of a hack, but if you want anyone to be able to run you can do qmgr -c "set queue <reservation queue name> acl_user_enable=False"MIG mode
+See the Nvidia Multi-Instance GPU User Guide for more details.
+
+sudo nvidia-smi mig -lgip List GPU Instance Profiles;  This is how you find the magic numbers used to configure it below.
+
+sudo nvidia-smi mig -lgipp list all the possible placements;  The syntax of the placement is {<index>}:<GPU Slice Count> 
+
+nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader - check the status of all the GPUs on the node;  add -i <GPU number> to check a specific GPU
+
+systemctl stop nvidia-dcgm.service ; systemctl stop nvsm ; sleep 5 ; /usr/bin/nvidia-smi -mig 1 Put the node in MIG mode;  -mig 0 will take it out of MIG mode.
+
+nvidia-smi mig -i 3 -cgi 19,19,19,19,19,19,19 -C configure GPU #3 to have 7 instances.
+
+nvidia-smi mig --destroy-compute-instance; nvidia-smi mig --destroy-gpu-instance Will free up the resources;  You have to do this before you can change the configuration.
+Polaris Rack and Dragonfly group mappings
+Racks contain (7) 6U chassis; Each chassis has 2 nodes for 14 nodes per rack
+
+The hostnames are of the form xRRPPc0sUUb[0|10]n0 where:
+* RR is the row {30, 31, 32}
+* PP is the position in the row {30 goes 01-16, 31 and 32 go 01-12}
+* c is chassis and is always 0 (I wish they would have counted up chasses, oh well)
+* s stands for slot, but in this case is the RU in the rack. Values are {1,7,13,19,25,31,37}
+* b is BMC controller and is 0 or 1 (each node has its own BMC)
+* n is node, but is always 0 since there is only one node per BMC
+
+So, 16+12+12 = 40 racks * 14 nodes per rack = 560 nodes.
+
+Note that in production group 9 (the last 4 racks) will be the designated on-demand racks
+
+The management racks are x3000 and X3100 and are dragonfly group 10
+
+The TDS rack is x3200 and is dragonfly group 11 
+|Group 0| Group 1| Group 2| Group 3|    Group 4| Group 5| Group 6| Group 7| Group 8| Group 9||----|----|----|----|----|----|----|----|----|----||x3001-g0   |x3005-g1   |x3009-g2   |x3013-g3   |x3101-g4|x3105-g5|x3109-g6|x3201-g7|x3205-g8|x3209-g9||x3002-g0   |x3006-g1   |x3010-g2   |x3014-g3   |x3102-g4|x3106-g5|x3110-g6|x3202-g7|x3206-g8|x3210-g9||x3003-g0   |x3007-g1   |x3011-g2   |x3015-g3   |x3103-g4|x3107-g5|x3111-g6|x3203-g7|x3207-g8|x3211-g9||x3004-g0   |x3008-g1   |x3012-g2   |x3016-g3   |x3104-g4|x3108-g5|x3112-g6|x3204-g7|x3208-g8|x3212-g9|
+
+ ###########  getting-started.md  ###########
+
+Getting Started on PolarisLogging Into PolarisTo log into Polaris:
+ssh <username>@polaris.alcf.anl.gov; log in using the ALCF mobilepass token
+
+ssh <username>@polaris-login-02
+Hardware OverviewAn overview of the Polaris system including details on the compute node architecture is available on the Machine Overview page.Compiling ApplicationsUsers are encouraged to read through the Compiling and Linking Overview page and corresponding pages depending on the target compiler and programming model.Submitting and Running JobsUsers are encouraged to read through the Job Scheduling and Execution page for information on using the Cobalt schedule and preparing job submission scripts. Some example job submission scripts are available on the Example Job Scripts page as well.Getting AssistanceNote: Our Polaris documentation is still under development.GPU Hackathon AttendeesPlease direct questions/issues to your mentor and/or post in the #cluster_support channel in the Hackathon Slack workspace.ESP/ECP Users and ALCF StaffPlease direct all questions, requests, and feedback to support@alcf.anl.gov.Please don't submit PRs against this repository.
+
+ ###########  known-issues.md  ###########
+
+Known IssuesThis is a collection of known issues that have been encountered during Polaris' early user phase. Documentation will be updated as issues are resolved.
+The nsys profiler packaged with nvhpc/21.9 in some cases appears to be presenting broken timelines with start times not lined up. The issue does not appear to be present when nsys from cudatoolkit-standalone/11.2.2 is used. We expect this to no longer be an issue once nvhpc/22.5 is made available as the default version.
+
+
+ ###########  CUDA-GDB.md  ###########
+
+CUDA-GDBReferencesNVIDIA CUDA-GDB Documentation IntroductionCUDA-GDB is the NVIDIA tool for debugging CUDA applications running on Polaris. CUDA-GDB is an extension to GDB, the GNU Project debugger. The tool provides developers with a mechanism for debugging CUDA applications running on actual hardware. This enables developers to debug applications without the potential variations introduced by simulation and emulation environments.Step-by-step guideDebug CompilationNVCC, the NVIDIA CUDA compiler driver, provides a mechanism for generating the debugging information necessary for CUDA-GDB to work properly. The -g -G option pair must be passed to NVCC when an application is compiled for ease of debugging with CUDA-GDB; for example,```nvcc -g -G foo.cu -o foo```Using this line to compile the CUDA application foo.cu
+forces -O0 compilation, with the exception of very limited dead-code eliminations and register-spilling optimizations.
+
+makes the compiler include debug information in the executable
+Running CUDA-gdb on Polaris compute nodesStart an interactive job mode on Polaris as follows:  ```$ qsub -I -l select=1 -l walltime=1:00:00$ cuda-gdb --versionNVIDIA (R) CUDA Debugger11.4 releasePortions Copyright (C) 2007-2021 NVIDIA CorporationGNU gdb (GDB) 10.1Copyright (C) 2020 Free Software Foundation, Inc.License GPLv3+: GNU GPL version 3 or later http://gnu.org/licenses/gpl.htmlThis is free software: you are free to change and redistribute it.There is NO WARRANTY, to the extent permitted by law.$ cuda-gdb foo```A quick example with a stream benchmark on a Polaris compute node```jkwack@polaris-login-02:~> qsub -I -l select=1 -l walltime=1:00:00qsub: waiting for job 308834.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov to startqsub: job 308834.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov readyCurrently Loaded Modules:1) craype-x86-rome          4) perftools-base/22.05.0   7) cray-dsmml/0.2.2   10) cray-pmi-lib/6.0.17  13) PrgEnv-nvhpc/8.3.32) libfabric/1.11.0.4.125   5) nvhpc/21.9               8) cray-mpich/8.1.16  11) cray-pals/1.1.7      14) craype-accel-nvidia803) craype-network-ofi       6) craype/2.7.15            9) cray-pmi/6.1.2     12) cray-libpals/1.1.7jkwack@x3008c0s13b1n0:~/BabelStream/build_polaris_debug> nvcc -g -G -c ../src/cuda/CUDAStream.cu  -I ../src/jkwack@x3008c0s13b1n0:~/BabelStream/build_polaris_debug> nvcc -g -G -c ../src/main.cpp -DCUDA -I ../src/cuda/ -I ../src/jkwack@x3008c0s13b1n0:~/BabelStream/build_polaris_debug> nvcc -g -G main.o CUDAStream.o -o cuda-stream-debugjkwack@x3008c0s13b1n0:~/BabelStream/build_polaris_debug> ./cuda-stream-debug BabelStreamVersion: 4.0Implementation: CUDARunning kernels 100 timesPrecision: doubleArray size: 268.4 MB (=0.3 GB)Total size: 805.3 MB (=0.8 GB)Using CUDA device NVIDIA A100-SXM4-40GBDriver: 11040Function    MBytes/sec  Min (sec)   Max         Average     Copy        1313940.694 0.00041     0.00047     0.00047     Mul         1302000.791 0.00041     0.00048     0.00047     Add         1296217.720 0.00062     0.00070     0.00069     Triad       1296027.887 0.00062     0.00070     0.00069     Dot         823405.227  0.00065     0.00076     0.00075     jkwack@x3008c0s13b1n0:~/BabelStream/build_polaris_debug> cuda-gdb ./cuda-stream-debug NVIDIA (R) CUDA Debugger11.4 releasePortions Copyright (C) 2007-2021 NVIDIA CorporationGNU gdb (GDB) 10.1Copyright (C) 2020 Free Software Foundation, Inc.License GPLv3+: GNU GPL version 3 or later http://gnu.org/licenses/gpl.htmlThis is free software: you are free to change and redistribute it.There is NO WARRANTY, to the extent permitted by law.Type "show copying" and "show warranty" for details.This GDB was configured as "x86_64-pc-linux-gnu".Type "show configuration" for configuration details.For bug reporting instructions, please see:https://www.gnu.org/software/gdb/bugs/.Find the GDB manual and other documentation resources online at:<http://www.gnu.org/software/gdb/documentation/>.
+For help, type "help".Type "apropos word" to search for commands related to "word"...Reading symbols from ./cuda-stream-debug...(cuda-gdb) b CUDAStream.cu:203Breakpoint 1 at 0x412598: CUDAStream.cu:203. (2 locations)(cuda-gdb) r      Starting program: /home/jkwack/BabelStream/build_polaris_debug/cuda-stream-debug [Thread debugging using libthread_db enabled]Using host libthread_db library "/lib64/libthread_db.so.1".BabelStreamVersion: 4.0Implementation: CUDARunning kernels 100 timesPrecision: doubleArray size: 268.4 MB (=0.3 GB)Total size: 805.3 MB (=0.8 GB)[Detaching after fork from child process 58459][New Thread 0x15554c6bb000 (LWP 58475)]Using CUDA device NVIDIA A100-SXM4-40GBDriver: 11040[New Thread 0x15554c4ba000 (LWP 58476)][Switching focus to CUDA kernel 0, grid 5, block (0,0,0), thread (0,0,0), device 0, sm 0, warp 3, lane 0]Thread 1 "cuda-stream-deb" hit Breakpoint 1, triad_kernel<<<(32768,1,1),(1024,1,1)>>> (a=0x155506000000, b=0x1554f6000000, c=0x1554e6000000)at ../src/cuda/CUDAStream.cu:203
+203   a[i] = b[i] + scalar * c[i];(cuda-gdb) cContinuing.[Switching focus to CUDA kernel 0, grid 5, block (1,0,0), thread (0,0,0), device 0, sm 0, warp 32, lane 0]Thread 1 "cuda-stream-deb" hit Breakpoint 1, triad_kernel<<<(32768,1,1),(1024,1,1)>>> (a=0x155506000000, b=0x1554f6000000, c=0x1554e6000000)at ../src/cuda/CUDAStream.cu:203
+203   a[i] = b[i] + scalar * c[i];(cuda-gdb) info localsi = 1024(cuda-gdb) p b[i]$1 = 0.040000000000000008(cuda-gdb) p scalar$2 = 0.40000000000000002(cuda-gdb) p c[i]$3 = 0.14000000000000001(cuda-gdb) d 1(cuda-gdb) cContinuing.Function    MBytes/sec  Min (sec)   Max         Average     Copy        1314941.553 0.00041     0.00041     0.00041     Mul         1301022.680 0.00041     0.00042     0.00041     Add         1293858.147 0.00062     0.00063     0.00063     Triad       1297681.929 0.00062     0.00063     0.00062     Dot         828446.963  0.00065     0.00066     0.00065     [Thread 0x15554c4ba000 (LWP 58476) exited][Thread 0x15554c6bb000 (LWP 58475) exited][Inferior 1 (process 58454) exited normally](cuda-gdb) qjkwack@x3008c0s13b1n0:~/BabelStream/build_polaris_debug> ```
+
+ ###########  debugging-overview.md  ###########
+
+Debugging OverviewContent is still being developed. Please check back.
+
  ###########  continuous-integration-polaris.md  ###########
 
 Continuous Integration on PolarisContent is still being developed. Please check back.
@@ -8,10 +783,6 @@ Continuous Integration on PolarisContent is still being developed. Please check 
  ###########  polaris-programming-models.md  ###########
 
 Programming Models on PolarisThe software environment on Polaris supports several parallel programming models targeting the CPUs and GPUs.CPU Parallel Programming ModelsThe Cray compiler wrappers cc, CC, and ftn are recommended for MPI applications as they provide the needed include paths and libraries for each programming environment. A summary of available CPU parallel programming models and relevant compiler flags is shown below. Users are encouraged to review the corresponding man pages and documentation.|Programming Model| GNU | NVHPC | LLVM || --- | --- | --- | --- || OpenMP | -fopenmp | -mp | -fopenmp || OpenACC | -- | -acc=multicore | -- | GPU Programming ModelsA summary of available GPU programming models and relevant compiler flags is shown below for compilers that generate offloadable code. Users are encouraged to review the corresponding man pages and documentation.|Programming Model| GNU | NVHPC | LLVM | LLVM-SYCL || --- | --- | --- | --- | --- || CUDA | -- | -cuda [-gpu=cuda8.0,cc11.0] | -- | -- || HIP* | -- | -- | -- | -- || OpenACC | -- | -acc | -- | -- || OpenCL* | -- | -- | -- | -- || OpenMP | --| -mp=gpu | -fopenmp-targets=nvptx64 | -- || SYCL | -- | -- | -- | -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend '--cuda-gpu-arch=sm_80' |Note, the llvm and llvm-sycl modules are provided by ALCF to complement the compilers provided by the Cray PE on Polaris.OpenCL is supported, but does not require specific compiler flags per-se as the offloaded kernels are just-in-time compiled. Abstraction programming models, such as Kokkos, can be built on top of some of these programming models (see below). A HIP compiler supporting the A100 GPUs is still to be installed on Polaris.Mapping Programming Models to Polaris ModulesThe table below offers some suggestions for how to get started setting up your environment on Polaris depending on the programming language and model. Note, mixed C/C++ and Fortran applications should choose the programming environment for the Fortran compiler because of mpi.mod and similar incompatibilities between Fortran-generated files from different compilers. Several simple examples for testing the software environment on Polaris for different programming models are available in the ALCF GettingStart repo.Note, users are encouraged to use PrgEnv-nvhpc instead of PrgEnv-nvidia as the latter will soon be deprecated in Cray's PE. They are otherwise identical pointing to compilers from the same NVIDIA SDK version.|Programming Language| GPU Programming Model | Likely used Modules/Compilers | Notes || --- | --- | --- | --- || C/C++ | CUDA | PrgEnv-nvhpc, PrgEnv-gnu, llvm | NVIDIA (nvcc, nvc, nvc++) and clang compilers do GPU code generation || C/C++ | HIP | N/A | need to install with support for A100 || C/C++ | Kokkos | See CUDA | HIP, OpenMP, and SYCL/DPC++ also candidates || C/C++ | OpenACC | PrgEnv-nvhpc |  || C/C++ | OpenCL | PrgEnv-nvhpc, PrgEnv-gnu, llvm | JIT GPU code generation || C/C++ | OpenMP | PrgEnv-nvhpc, llvm |  || C/C++ | RAJA | See CUDA | HIP, OpenMP, and SYCL/DPC++ also candidates || C/C++ | SYCL/DPC++ | llvm-sycl |  || | | |  || Fortran | CUDA | PrgEnv-nvhpc | NVIDIA compiler (nvfortran) does GPU code generation; gfortran can be loaded via gcc-mixed || Fortran | HIP | N/A | need to install with support for A100 || Fortran | OpenACC | PrgEnv-nvhpc |  || Fortran | OpenCL | PrgEnv-nvhpc, PrgEnv-gnu | JIT GPU code generation || Fortran | OpenMP | PrgEnv-nvhpc |  |
-
- ###########  .DS_Store  ###########
-
-
 
  ###########  llvm-compilers-polaris.md  ###########
 
@@ -42,10 +813,6 @@ cuda/lib64 - cudart, OpenCL, ...
 
 math_libs/lib64 - cublas, cufft, ...
 Differences between nvcc and nvc/nvc++For users that want to continue using nvcc it is important to be mindful of differences with the newer nvc and nvc++ compilers. For example, the -cuda flag instructs nvcc to compile .cu input files to .cu.cpp.ii output files which are to be separately compiled, whereas the same -cuda flag instructs nvc, nvc++, and nvfortran to enable CUDA C/C++ or CUDA Fortran code generation. The resulting output file in each case is different (text vs. object) and one may see unrecognized format error when -cuda is incorrectly passed to nvcc.
-
- ###########  files  ###########
-
-
 
  ###########  gnu-compilers-polaris.md  ###########
 

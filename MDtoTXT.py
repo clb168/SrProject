@@ -3,8 +3,8 @@ from markdown import markdown
 import re
 import os
 
-mdFolderPath = "/Users/cburh/Documents/Assignments_Fall2023/Senior Project/polarisDocumentation/docs/polaris/compiling-and-linking/"
-txtFilePath = "/Users/cburh/Documents/Assignments_Fall2023/Senior Project/polarisDocs-txt/MainFile.txt"
+mdFolderPath = "/Users/cburh/Documents/Assignments_Fall2023/Senior Project/SrProject/polarisDocumentation/docs/polaris/"
+txtFilePath = "/Users/cburh/Documents/Assignments_Fall2023/Senior Project/SrProject/MainFile.txt"
 def markdown_to_text(markdown_string):
     """ Converts a markdown string to plaintext """
 
@@ -37,14 +37,20 @@ docFolders = os.listdir(mdFolderPath)
 def writeAllMdToTxt(directory, txtFileToWrite):
         folders = os.listdir(directory)
         for file in folders:
-             with open(txtFileToWrite, 'a') as f:
-                f.write("\n\n ###########  " + file + "  ###########\n\n")
-                f.close()
-             md = file[-3:]
-             if (md != ".md"):
-                  continue
-             readMD_writeTXT(directory + file, txtFileToWrite)
+            md = file[-3:]
+            if (os.path.isdir(directory+file)):
+                writeAllMdToTxt(directory + file + "/", txtFileToWrite)
+            if (md == ".md"):
+                with open(txtFileToWrite, 'a') as f:
+                    f.write("\n\n ###########  " + file + "  ###########\n\n")
+                    f.close()
+                readMD_writeTXT(directory + file, txtFileToWrite)
+            else:
+                continue
             
 
             
 writeAllMdToTxt(mdFolderPath, txtFilePath)
+#print(os.listdir(mdFolderPath))
+
+
