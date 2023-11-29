@@ -8,3 +8,6 @@ Ok so im running into an isssue with the port, I think its a firewall blocking. 
 try to work with langchain from the ground up?
 
 I got the simple demo working. turns out im an idiot and just needed to reinstall ollama. -Casey
+
+Ok I just added langchain-python-rag-privategpt from https://github.com/jmorganca/ollama/tree/main/examples/langchain-python-rag-privategpt
+Going to start working with this.
