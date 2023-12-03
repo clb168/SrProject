@@ -32,7 +32,7 @@ class SuppressStdout:
 # loader = OnlinePDFLoader("https://d18rn0p25nwr6d.cloudfront.net/CIK-0001813756/975b3e9b-268e-4798-a9e4-2a9a7c92dc10.pdf")
 # data = loader.load()
 
-loader = PyPDFLoader("/home/caden/ragExperiment/TraingingMaterial/polaris_3.pdf")
+loader = PyPDFLoader("exampleData/polaris_3.pdf")
 data = loader.load()
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
