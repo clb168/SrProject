@@ -6,6 +6,13 @@ from langchain.llms import Ollama
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import RetrievalQA
+
+from langchain.document_loaders import PyPDFLoader
+
+
+
+
+
 import sys
 import os
 
@@ -22,7 +29,10 @@ class SuppressStdout:
         sys.stderr = self._original_stderr
 
 # load the pdf and split it into chunks
-loader = OnlinePDFLoader("https://d18rn0p25nwr6d.cloudfront.net/CIK-0001813756/975b3e9b-268e-4798-a9e4-2a9a7c92dc10.pdf")
+# loader = OnlinePDFLoader("https://d18rn0p25nwr6d.cloudfront.net/CIK-0001813756/975b3e9b-268e-4798-a9e4-2a9a7c92dc10.pdf")
+# data = loader.load()
+
+loader = PyPDFLoader("/home/caden/ragExperiment/TraingingMaterial/polaris_3.pdf")
 data = loader.load()
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
