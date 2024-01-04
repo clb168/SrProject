@@ -8,7 +8,7 @@ from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import RetrievalQA
 
 from langchain.document_loaders import PyPDFLoader
-
+from langchain.document_loaders import TextLoader
 import sys
 import os
 
@@ -29,12 +29,15 @@ class SuppressStdout:
 # data = loader.load()
 
 loader = PyPDFLoader("exampleData/polaris_3.pdf")
-data = loader.load()
+data1 = loader.load()
+loader = TextLoader("exampleData/MainFile.txt")
+data2 = loader.load()
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=0)
-all_splits = text_splitter.split_documents(data)
-
+split1 = text_splitter.split_documents(data1)
+split2 = text_splitter.split_documents(data2)
+all_splits = split1 + split2
 with SuppressStdout():
     vectorstore = Chroma.from_documents(documents=all_splits, embedding=GPT4AllEmbeddings())
 
