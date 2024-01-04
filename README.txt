@@ -16,3 +16,5 @@ DataConversion folder simply contains a script to convery markdown files to text
 The polaris documentation github is also linked within the repo
 
 The training material folder contains the documentation used in RAG
+
+This repo can be found in the RagExperiment folder on the server (Argonne server)
