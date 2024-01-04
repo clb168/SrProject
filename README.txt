@@ -10,3 +10,9 @@ QuestionGen.py is a simple question generation script that scrapes the documenta
 so only certain QA pairs generated can actually be used in testing. All required packages for main and QuestionGen can be found in requirements.txt.
 
 IntegrationTesting is currently a WIP for integrating the rag into the autogen pipeline.
+
+DataConversion folder simply contains a script to convery markdown files to text. This was used to convert the polaris documentation on github to one large text file. 
+
+The polaris documentation github is also linked within the repo
+
+The training material folder contains the documentation used in RAG
